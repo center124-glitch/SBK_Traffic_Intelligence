@@ -82,7 +82,7 @@
   --mint-a32:   rgba(52, 211, 153, .32);
   --rose-a32:   rgba(248, 113, 113, .32);
   --violet-a40: rgba(167, 139, 250, .40);
-  --surface-glass: rgba(19, 28, 46, .80);
+  --surface-glass: rgba(19, 28, 46, .86);
   --bg-a86:     rgba(11, 17, 32, .86);
   --bg-a92:     rgba(11, 17, 32, .92);
 
@@ -108,14 +108,16 @@
 
 /* --- โทนสว่าง --- */
 [data-theme="light"] {
-  --bg:          #F1F5F9;
+  /* เดิมใช้ #F1F5F9 ซึ่งเกือบขาว ทำให้ทั้งหน้าดูจืดและการ์ดสีขาวจมหายไปกับพื้น
+     เปลี่ยนเป็นโทนฟ้าอมม่วงอ่อน การ์ดสีขาวจึงลอยเด่นขึ้นมาชัดเจน */
+  --bg:          #E8EEF7;
   --bg-grad:     radial-gradient(1100px 560px at 12% -12%, #dbf1f6 0%, transparent 60%),
                  radial-gradient(900px 460px at 100% 0%, #e2f6ee 0%, transparent 55%);
   --surface:     #FFFFFF;
-  --surface-2:   #F8FAFC;
-  --surface-3:   #EEF2F7;
-  --line:        #DCE3EC;
-  --line-soft:   #E8EDF3;
+  --surface-2:   #F5F8FC;
+  --surface-3:   #EAF0F8;
+  --line:        #D3DDEA;
+  --line-soft:   #E2E9F3;
   --text:        #0F1C2E;
   --text-dim:    #5A6B82;
   --text-faint:  #5E6E82;   /* ปรับให้เข้มขึ้นจาก #8695A8 — เดิมคอนทราสต์ 3.0:1 ไม่ผ่าน AA */
@@ -154,9 +156,9 @@
   --m-amber-c:#D97706;--m-amber-s:rgba(217,119,6,.14);  --m-amber-i:#B45309; --m-amber-g:rgba(217,119,6,.30);
   --m-rose-c:#DC2626; --m-rose-s:rgba(220,38,38,.12);   --m-rose-i:#B91C1C;  --m-rose-g:rgba(220,38,38,.28);
 
-  --surface-glass: rgba(255, 255, 255, .80);
-  --bg-a86:     rgba(241, 245, 249, .86);
-  --bg-a92:     rgba(241, 245, 249, .92);
+  --surface-glass: rgba(255, 255, 255, .88);
+  --bg-a86:     rgba(232, 238, 247, .84);
+  --bg-a92:     rgba(232, 238, 247, .90);
 }
 
 * { box-sizing: border-box; }
@@ -424,16 +426,16 @@ a { color: var(--accent); }
   filter: blur(96px) saturate(140%); will-change: transform;
 }
 #bg-fx .o1 { width: 52vmax; height: 52vmax; left: -16%; top: -20%;
-  background: radial-gradient(circle, #06E7FF 0%, #0E7490 42%, transparent 68%); opacity: .34;
+  background: radial-gradient(circle, #06E7FF 0%, #0E7490 42%, transparent 68%); opacity: .42;
   animation: bgDrift1 30s ease-in-out infinite; }
 #bg-fx .o2 { width: 44vmax; height: 44vmax; right: -14%; top: -8%;
-  background: radial-gradient(circle, #C026D3 0%, #6D28D9 42%, transparent 68%); opacity: .30;
+  background: radial-gradient(circle, #C026D3 0%, #6D28D9 42%, transparent 68%); opacity: .38;
   animation: bgDrift2 36s ease-in-out infinite; }
 #bg-fx .o3 { width: 48vmax; height: 48vmax; left: 24%; bottom: -30%;
-  background: radial-gradient(circle, #22F5A8 0%, #047857 42%, transparent 68%); opacity: .26;
+  background: radial-gradient(circle, #22F5A8 0%, #047857 42%, transparent 68%); opacity: .34;
   animation: bgDrift3 42s ease-in-out infinite; }
 #bg-fx .o4 { width: 30vmax; height: 30vmax; right: 16%; bottom: -16%;
-  background: radial-gradient(circle, #FF5FA2 0%, #C2410C 45%, transparent 70%); opacity: .22;
+  background: radial-gradient(circle, #FF5FA2 0%, #C2410C 45%, transparent 70%); opacity: .30;
   animation: bgDrift4 34s ease-in-out infinite; }
 @keyframes bgDrift1 { 0%,100% { transform: translate3d(0,0,0) scale(1); }   50% { transform: translate3d(7vmax,5vmax,0) scale(1.12); } }
 @keyframes bgDrift2 { 0%,100% { transform: translate3d(0,0,0) scale(1.08); } 50% { transform: translate3d(-6vmax,7vmax,0) scale(.94); } }
@@ -450,12 +452,12 @@ a { color: var(--accent); }
   -webkit-mask-image: radial-gradient(ellipse 92% 72% at 50% 0%, #000 10%, transparent 72%);
 }
 :root { --mesh-c: rgba(160,200,240,.07); }
-[data-theme="light"] { --mesh-c: rgba(15,42,80,.035); }
+[data-theme="light"] { --mesh-c: rgba(15,42,80,.06); }
 /* โหมดสว่างต้องจางลงมาก ไม่งั้นสีจะทับตัวหนังสือจนอ่านยาก */
-[data-theme="light"] #bg-fx .o1 { opacity: .22; }
-[data-theme="light"] #bg-fx .o2 { opacity: .18; }
-[data-theme="light"] #bg-fx .o3 { opacity: .16; }
-[data-theme="light"] #bg-fx .o4 { opacity: .13; }
+[data-theme="light"] #bg-fx .o1 { opacity: .30; }
+[data-theme="light"] #bg-fx .o2 { opacity: .24; }
+[data-theme="light"] #bg-fx .o3 { opacity: .24; }
+[data-theme="light"] #bg-fx .o4 { opacity: .18; }
 
 /* โหมดสว่างต้องใช้ multiply — screen บนพื้นขาวจะกลายเป็นขาวหมดจนมองไม่เห็นสี */
 [data-theme="light"] #bg-fx .orb { mix-blend-mode: multiply; filter: blur(96px) saturate(115%); }
@@ -471,10 +473,14 @@ a { color: var(--accent); }
   height: calc(var(--topbar-h) + var(--sat));
   padding: var(--sat) max(16px, var(--sar)) 0 max(16px, var(--sal));
   display: flex; align-items: center; gap: 14px;
-  background: var(--bg-a86);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  /* ไล่สีบาง ๆ จากซ้ายไปขวา ทำให้แถบบนไม่ใช่แผ่นสีเรียบ ๆ แต่ยังไม่แย่งความสนใจ */
+  background:
+    linear-gradient(100deg, var(--accent-a14) 0%, transparent 38%, var(--violet-a14) 100%),
+    var(--bg-a86);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid var(--line-soft);
+  box-shadow: 0 1px 0 0 var(--accent-a14);
 }
 .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .brand-mark {
@@ -515,8 +521,10 @@ select.input option { background: var(--surface-2); color: var(--text); }
   background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
   text-overflow: ellipsis;
 }
-.period-pick.is-a { border-color: var(--accent-line); }
-.period-pick.is-b { border-color: var(--violet-a40); }
+.period-pick.is-a { border-color: var(--accent-line); background: linear-gradient(135deg, var(--accent-a14), transparent 70%), var(--surface); }
+.period-pick.is-b { border-color: var(--violet-a40); background: linear-gradient(135deg, var(--violet-a14), transparent 70%), var(--surface); }
+.period-pick.is-a .pp-tag { color: var(--accent); }
+.period-pick.is-b .pp-tag { color: var(--violet); }
 .vs-chip { font-size: 10.5px; font-weight: 700; color: var(--text-faint); letter-spacing: .06em; }
 
 .icon-btn {
@@ -556,6 +564,7 @@ select.input option { background: var(--surface-2); color: var(--text); }
   width: var(--rail-w); flex: 0 0 var(--rail-w);
   padding: 14px 10px calc(14px + var(--sab)) max(10px, var(--sal));
   display: flex; flex-direction: column; gap: 5px;
+  background: linear-gradient(180deg, var(--accent-a14) 0%, transparent 28%, var(--violet-a14) 100%);
   border-right: 1px solid var(--line-soft);
   transition: width .2s ease, flex-basis .2s ease;
   overflow: hidden auto;
@@ -571,7 +580,12 @@ select.input option { background: var(--surface-2); color: var(--text); }
 .nav-item span { opacity: 0; transition: opacity .15s; }
 .rail.open .nav-item span { opacity: 1; }
 .nav-item:hover { background: var(--surface); color: var(--text); }
-.nav-item.active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.nav-item.active {
+  color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent), var(--mint));
+  box-shadow: 0 8px 20px -8px var(--accent-line);
+}
+.nav-item.active:hover { color: var(--accent-ink); }
 .rail-foot { margin-top: auto; }
 
 /* ===================== พื้นที่เนื้อหา ===================== */
@@ -585,7 +599,19 @@ select.input option { background: var(--surface-2); color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .view { animation: none; } }
 
 .view-head { margin-bottom: 18px; }
-.view-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 3px; }
+.view-title {
+  font-size: 21px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 5px;
+  display: inline-block;
+  background: linear-gradient(100deg, var(--accent), var(--mint) 55%, var(--violet));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+/* เส้นไล่สีใต้หัวข้อ ช่วยแบ่งส่วนของหน้าให้ชัดโดยไม่ต้องใช้กรอบ */
+.view-head { position: relative; padding-bottom: 14px; }
+.view-head::after {
+  content: ''; position: absolute; left: 0; bottom: 0; width: 72px; height: 3px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--mint), var(--violet));
+}
 .view-desc { font-size: 12.5px; color: var(--text-dim); margin: 0; }
 
 .card {
@@ -595,18 +621,21 @@ select.input option { background: var(--surface-2); color: var(--text); }
      และทำให้หัวตาราง/คอลัมน์แรกที่เป็น position:sticky หยุดทำงาน
      ใช้วิธีมนขอบให้เส้นไล่สีเองแทน */
   position: relative;
-  background: var(--surface-glass); border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 70% at 0% 0%, var(--card-tint, transparent) 0%, transparent 62%),
+    var(--surface-glass);
+  border: 1px solid var(--line);
   border-radius: var(--radius); padding: 18px;
-  backdrop-filter: blur(10px) saturate(118%);
-  -webkit-backdrop-filter: blur(10px) saturate(118%);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
   transition: transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s, box-shadow .18s;
 }
 /* เส้นไล่สีบางบนขอบบน — ให้การ์ดดูมีชีวิตโดยไม่รบกวนการอ่านตัวเลข */
 .card::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
   border-radius: var(--radius) var(--radius) 0 0;   /* มนตามขอบการ์ด แทนการใช้ overflow:hidden */
-  background: linear-gradient(90deg, var(--card-a, var(--accent)), var(--card-b, var(--mint)), transparent 85%);
-  opacity: .75; transition: opacity .18s; pointer-events: none;
+  background: linear-gradient(90deg, var(--card-a, var(--accent)), var(--card-b, var(--mint)) 55%, transparent 96%);
+  opacity: 1; transition: opacity .18s; pointer-events: none;
 }
 .card:hover {
   transform: translateY(-2px);
@@ -620,12 +649,12 @@ select.input option { background: var(--surface-2); color: var(--text); }
 
 /* สีประจำการ์ดแต่ละประเภท — ใช้ class เดียวกำหนดครบทั้งเส้นบน ขอบตอนชี้ และเงา
    ทำให้แต่ละส่วนของแดชบอร์ดแยกออกจากกันด้วยสีโดยไม่ต้องพึ่งหัวข้ออย่างเดียว */
-.c-cyan   { --card-a:#22D3EE; --card-b:#38BDF8; --card-line:rgba(34,211,238,.55);  --card-glow:rgba(34,211,238,.5); }
-.c-mint   { --card-a:#34D399; --card-b:#22D3EE; --card-line:rgba(52,211,153,.55);  --card-glow:rgba(52,211,153,.5); }
-.c-violet { --card-a:#A78BFA; --card-b:#C084FC; --card-line:rgba(167,139,250,.55); --card-glow:rgba(167,139,250,.5); }
-.c-amber  { --card-a:#FBBF24; --card-b:#FB923C; --card-line:rgba(251,191,36,.55);  --card-glow:rgba(251,191,36,.45); }
-.c-rose   { --card-a:#FB7185; --card-b:#F472B6; --card-line:rgba(251,113,133,.55); --card-glow:rgba(251,113,133,.45); }
-.c-sky    { --card-a:#38BDF8; --card-b:#818CF8; --card-line:rgba(56,189,248,.55);  --card-glow:rgba(56,189,248,.45); }
+.c-cyan   { --card-a:var(--m-cyan-c);   --card-b:var(--m-sky-c);    --card-line:var(--m-cyan-g);   --card-glow:var(--m-cyan-g);   --card-tint:var(--m-cyan-s); }
+.c-mint   { --card-a:var(--m-mint-c);   --card-b:var(--m-cyan-c);   --card-line:var(--m-mint-g);   --card-glow:var(--m-mint-g);   --card-tint:var(--m-mint-s); }
+.c-violet { --card-a:var(--m-violet-c); --card-b:var(--m-rose-c);   --card-line:var(--m-violet-g); --card-glow:var(--m-violet-g); --card-tint:var(--m-violet-s); }
+.c-amber  { --card-a:var(--m-amber-c);  --card-b:var(--m-rose-c);   --card-line:var(--m-amber-g);  --card-glow:var(--m-amber-g);  --card-tint:var(--m-amber-s); }
+.c-rose   { --card-a:var(--m-rose-c);   --card-b:var(--m-violet-c); --card-line:var(--m-rose-g);   --card-glow:var(--m-rose-g);   --card-tint:var(--m-rose-s); }
+.c-sky    { --card-a:var(--m-sky-c);    --card-b:var(--m-violet-c); --card-line:var(--m-sky-g);    --card-glow:var(--m-sky-g);    --card-tint:var(--m-sky-s); }
 
 /* หัวการ์ดมีจุดสีนำหน้า ช่วยกวาดสายตาหาหัวข้อได้เร็วขึ้น */
 .card-title { display: flex; align-items: center; gap: 8px; }
@@ -727,9 +756,12 @@ select.input option { background: var(--surface-2); color: var(--text); }
 .tbl-scroll { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
 table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.tbl th, table.tbl td { padding: 9px 11px; text-align: right; white-space: nowrap; }
+table.tbl tbody tr:nth-child(even) td { background: var(--surface-2); }
+table.tbl tbody tr:nth-child(even) td:first-child { background: var(--surface-2); }
 table.tbl th {
   position: sticky; top: 0; z-index: 1;
-  background: var(--surface-2); color: var(--text-dim);
+  background: linear-gradient(180deg, var(--card-tint, var(--accent-a14)), transparent), var(--surface-2);
+  color: var(--text-dim);
   font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
   border-bottom: 1px solid var(--line);
 }
@@ -771,7 +803,11 @@ table.tbl tbody tr:hover td:first-child { background: var(--surface-2); }
 }
 .btn:hover { border-color: var(--accent-line); background: var(--surface-2); }
 .btn svg { width: 16px; height: 16px; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--mint));
+  color: var(--accent-ink); border-color: transparent; font-weight: 700;
+  box-shadow: 0 8px 20px -10px var(--accent-line);
+}
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.ghost { background: transparent; }
 .btn:disabled { opacity: .45; pointer-events: none; }
@@ -783,7 +819,11 @@ table.tbl tbody tr:hover td:first-child { background: var(--surface-2); }
   padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
   color: var(--text-dim); transition: .14s; white-space: nowrap;
 }
-.seg button.on { background: var(--surface); color: var(--accent); box-shadow: 0 0 0 1px var(--accent-line); }
+.seg button.on {
+  background: linear-gradient(135deg, var(--accent), var(--mint));
+  color: var(--accent-ink); font-weight: 700;
+  box-shadow: 0 6px 14px -6px var(--accent-line);
+}
 
 /* --- สถานะว่าง / กำลังโหลด --- */
 .empty { text-align: center; padding: 54px 20px; }
@@ -2731,6 +2771,32 @@ function comparabilityNote(a, b) {
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
+/* สร้างไล่สีแนวตั้งสำหรับแท่งกราฟ/พื้นที่ใต้เส้น
+   ต้องคืนเป็นฟังก์ชัน เพราะตอนสร้าง dataset ยังไม่รู้ขนาดพื้นที่วาด (chartArea)
+   Chart.js จะเรียกอีกครั้งหลังคำนวณ layout เสร็จ */
+function vGrad(from, to, alphaTop = 'ff', alphaBottom = '55') {
+  return (ctx) => {
+    const { ctx: c, chartArea } = ctx.chart;
+    if (!chartArea) return from;
+    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0, from + alphaTop);
+    g.addColorStop(1, (to || from) + alphaBottom);
+    return g;
+  };
+}
+/* ไล่สีสำหรับพื้นที่ใต้เส้นกราฟ — จางลงจนโปร่งใสที่ขอบล่าง */
+function areaGrad(color) {
+  return (ctx) => {
+    const { ctx: c, chartArea } = ctx.chart;
+    if (!chartArea) return 'transparent';
+    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0, color + '66');
+    g.addColorStop(.55, color + '22');
+    g.addColorStop(1, color + '00');
+    return g;
+  };
+}
+
 /* สร้าง inline style ของการ์ด KPI — ผูกชุดสีประจำตัววัดเข้ากับตัวแปรที่ CSS ใช้
    และสร้างลายน้ำไอคอนด้วย mask จาก <symbol> เดิม จึงไม่ต้องเพิ่มไฟล์ภาพ */
 function kpiVars(tone, icon) {
@@ -2937,8 +3003,8 @@ function renderOverview() {
     data: {
       labels: keys.map(k => METRIC_BY_KEY[k].label),
       datasets: [
-        { label: 'วันธรรมดา', data: keys.map(k => Math.round(a.agg.wk.weekday.avg[k])), backgroundColor: p.accent, borderRadius: 6, maxBarThickness: 34 },
-        { label: 'วันหยุด',   data: keys.map(k => Math.round(a.agg.wk.holiday.avg[k])), backgroundColor: p.amber, borderRadius: 6, maxBarThickness: 34 },
+        { label: 'วันธรรมดา', data: keys.map(k => Math.round(a.agg.wk.weekday.avg[k])), backgroundColor: vGrad(p.accent, p.sky), borderRadius: 7, maxBarThickness: 36, borderSkipped: false },
+        { label: 'วันหยุด',   data: keys.map(k => Math.round(a.agg.wk.holiday.avg[k])), backgroundColor: vGrad(p.amber, p.rose), borderRadius: 7, maxBarThickness: 36, borderSkipped: false },
       ],
     },
     options: baseChartOpts(p),
@@ -2954,7 +3020,9 @@ function renderOverview() {
     type: 'doughnut',
     data: {
       labels: mixKeys.map(k => METRIC_BY_KEY[k].label),
-      datasets: [{ data: mixVals, backgroundColor: [p.mint, p.amber, p.rose, p.sky], borderColor: p.surface, borderWidth: 3, hoverOffset: 6 }],
+      datasets: [{ data: mixVals, backgroundColor: [p.mint, p.amber, p.rose, p.sky],
+                   borderColor: p.surface, borderWidth: 4, hoverOffset: 10,
+                   hoverBorderColor: p.surface, spacing: 2 }],
     },
     options: {
       responsive: true, maintainAspectRatio: false, cutout: '62%',
@@ -3000,18 +3068,19 @@ function drawTrend(metric, p) {
   };
   const ds = [{
     label: a.label, data: series(a), borderColor: p.accent,
-    backgroundColor: (ctx) => {
-      const { ctx: c, chartArea } = ctx.chart;
-      if (!chartArea) return 'transparent';
-      const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-      g.addColorStop(0, p.accent + '55'); g.addColorStop(1, p.accent + '00');
-      return g;
-    },
-    borderWidth: 2.2, fill: true, tension: .32, pointRadius: 0, pointHoverRadius: 4, spanGaps: true,
+    backgroundColor: areaGrad(p.accent),
+    borderWidth: 2.8, fill: true, tension: .34,
+    pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: p.accent,
+    pointHoverBorderColor: p.surface, pointHoverBorderWidth: 2, spanGaps: true,
   }];
   if (b && b.id !== a.id) ds.push({
-    label: b.label, data: series(b), borderColor: p.violet, backgroundColor: 'transparent',
-    borderWidth: 1.8, borderDash: [5, 4], fill: false, tension: .32, pointRadius: 0, pointHoverRadius: 4, spanGaps: true,
+    /* เส้นช่วงฐานต้องไม่ถมพื้นที่ใต้เส้น
+       ไม่งั้นสีจะคลุมทั้งกราฟจนบังเส้นช่วงหลักและอ่านยาก */
+    label: b.label, data: series(b), borderColor: p.violet,
+    backgroundColor: 'transparent',
+    borderWidth: 2.4, borderDash: [6, 4], fill: false, tension: .34,
+    pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: p.violet,
+    pointHoverBorderColor: p.surface, pointHoverBorderWidth: 2, spanGaps: true,
   });
   charts.trend = new Chart($('#ch-trend'), { type: 'line', data: { labels, datasets: ds }, options: baseChartOpts(p) });
 }
@@ -3039,8 +3108,8 @@ function renderHourly() {
     data: {
       labels: HOURS_CUST.map(hLabel),
       datasets: [
-        { label: 'ลูกค้าเข้า', data: pick(a, 'cIn'), backgroundColor: p.accent, borderRadius: 5, maxBarThickness: 26 },
-        { label: 'ลูกค้าออก', data: pick(a, 'cOut'), backgroundColor: p.sky + '99', borderRadius: 5, maxBarThickness: 26 },
+        { label: 'ลูกค้าเข้า', data: pick(a, 'cIn'), backgroundColor: vGrad(p.accent, p.mint), borderRadius: 6, maxBarThickness: 28, borderSkipped: false },
+        { label: 'ลูกค้าออก', data: pick(a, 'cOut'), backgroundColor: vGrad(p.violet, p.rose, 'cc', '44'), borderRadius: 6, maxBarThickness: 28, borderSkipped: false },
       ],
     },
     options: baseChartOpts(p),
@@ -3052,8 +3121,10 @@ function renderHourly() {
     data: {
       labels: HOURS_VEH.map(hLabel),
       datasets: [
-        { label: 'รถยนต์เข้า', data: pick(a, 'vIn'), borderColor: p.mint, backgroundColor: p.mint + '22', borderWidth: 2.2, fill: true, tension: .35, pointRadius: 0, pointHoverRadius: 4 },
-        { label: 'รถยนต์ออก', data: pick(a, 'vOut'), borderColor: p.violet, backgroundColor: 'transparent', borderWidth: 2, fill: false, tension: .35, pointRadius: 0, pointHoverRadius: 4 },
+        { label: 'รถยนต์เข้า', data: pick(a, 'vIn'), borderColor: p.mint, backgroundColor: areaGrad(p.mint),
+          borderWidth: 2.8, fill: true, tension: .36, pointRadius: 0, pointHoverRadius: 5 },
+        { label: 'รถยนต์ออก', data: pick(a, 'vOut'), borderColor: p.violet, backgroundColor: areaGrad(p.violet),
+          borderWidth: 2.4, fill: true, tension: .36, pointRadius: 0, pointHoverRadius: 5 },
       ],
     },
     options: baseChartOpts(p),
@@ -3164,8 +3235,16 @@ function renderGates() {
       labels: shown.map(g => g.name.replace(/^ประตู\s*/, '').slice(0, 26)),
       datasets: [{ label: dir === 'in' ? 'ขาเข้า' : dir === 'out' ? 'ขาออก' : 'รวมเข้า-ออก',
                    data: shown.map(g => g[dir]),
-                   backgroundColor: dir === 'out' ? p.violet : dir === 'both' ? p.amber : p.accent,
-                   borderRadius: 5, maxBarThickness: 18 }],
+                   backgroundColor: (ctx) => {
+                     const { ctx: c, chartArea } = ctx.chart;
+                     const base = dir === 'out' ? p.violet : dir === 'both' ? p.amber : p.accent;
+                     const to   = dir === 'out' ? p.rose   : dir === 'both' ? p.rose  : p.mint;
+                     if (!chartArea) return base;
+                     const g = c.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+                     g.addColorStop(0, base); g.addColorStop(1, to);
+                     return g;
+                   },
+                   borderRadius: 6, maxBarThickness: 20, borderSkipped: false }],
     },
     options: { ...baseChartOpts(p, { legend: false }), indexAxis: 'y',
       scales: {
@@ -3214,8 +3293,8 @@ function renderCompare() {
     data: {
       labels: keys.map(k => METRIC_BY_KEY[k].label),
       datasets: [
-        { label: a.label + ' (เฉลี่ย/วัน)', data: keys.map(k => Math.round(a.agg.avg[k])), backgroundColor: p.accent, borderRadius: 6, maxBarThickness: 40 },
-        ...(b ? [{ label: b.label + ' (เฉลี่ย/วัน)', data: keys.map(k => Math.round(b.agg.avg[k])), backgroundColor: p.violet, borderRadius: 6, maxBarThickness: 40 }] : []),
+        { label: a.label + ' (เฉลี่ย/วัน)', data: keys.map(k => Math.round(a.agg.avg[k])), backgroundColor: vGrad(p.accent, p.mint), borderRadius: 8, maxBarThickness: 42, borderSkipped: false },
+        ...(b ? [{ label: b.label + ' (เฉลี่ย/วัน)', data: keys.map(k => Math.round(b.agg.avg[k])), backgroundColor: vGrad(p.violet, p.rose), borderRadius: 8, maxBarThickness: 42, borderSkipped: false }] : []),
       ],
     },
     options: baseChartOpts(p),
