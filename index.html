@@ -754,6 +754,21 @@ select.input option { background: var(--surface-2); color: var(--text); }
 
 /* --- ตาราง --- */
 .tbl-scroll { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+
+/* ---- แผ่นรายงาน A4 แนวนอน ----
+   แผ่นรายงานมีความกว้างคงที่ 1123px (= A4 แนวนอนที่ 96dpi) เพื่อให้สิ่งที่เห็น
+   บนจอตรงกับไฟล์ PDF ที่ได้ หน้าจอที่แคบกว่านั้นจึงต้องย่อดูทั้งแผ่น
+   ใช้ transform: scale แทนการบีบ layout เพราะการบีบจะทำให้สัดส่วนบนจอ
+   ไม่ตรงกับไฟล์ที่ส่งออก แล้วผู้ใช้จะจัดหน้าโดยดูจากจอไม่ได้ */
+#report-canvas { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
+#report-canvas > #report-sheet { transform-origin: top center; }
+@media (max-width: 1220px) {
+  #report-canvas { overflow-x: hidden; }
+  #report-sheet { transform: scale(var(--rp-scale, 1)); }
+  /* ชดเชยพื้นที่ว่างด้านล่างที่เกิดจากการย่อ ไม่งั้นจะเหลือช่องโหว่ใต้แผ่น */
+  #report-canvas { margin-bottom: calc((var(--rp-scale, 1) - 1) * var(--rp-h, 0px)); }
+}
+.rp-page { break-inside: avoid; }
 table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.tbl th, table.tbl td { padding: 9px 11px; text-align: right; white-space: nowrap; }
 table.tbl tbody tr:nth-child(even) td { background: var(--surface-2); }
@@ -781,6 +796,29 @@ table.tbl tbody tr:hover td:first-child { background: var(--surface-2); }
   border-left: 2px solid var(--accent);
 }
 .bar-cell span { position: relative; }
+
+/* --- ตารางความหนาแน่น (heatmap) ---
+   ใช้ CSS grid ธรรมดา ไม่ง้อไลบรารีเพิ่ม ความเข้มของสีผูกกับค่าในช่อง
+   ตัวเลขในช่องอ่านได้ทุกระดับความเข้ม เพราะใช้สีตัวอักษรสองระดับตามความเข้มพื้น */
+.heat { display: grid; gap: 3px; min-width: 620px; }
+.heat-cell {
+  border-radius: 6px; padding: 7px 4px; text-align: center;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 10.5px; font-weight: 600; line-height: 1.2;
+  transition: transform .12s;
+}
+.heat-cell.v { color: #06202B; }
+[data-theme="dark"] .heat-cell.v { color: #04161D; }
+.heat-cell.dim { color: var(--text-dim); }
+.heat-cell:hover { transform: scale(1.12); position: relative; z-index: 2; box-shadow: 0 4px 14px -4px rgba(0,0,0,.4); }
+.heat-head { font-family: var(--font); font-size: 10.5px; font-weight: 700; color: var(--text-faint); text-align: center; padding: 4px 2px; }
+.heat-row { font-family: var(--font); font-size: 11.5px; font-weight: 700; color: var(--text-dim); display: flex; align-items: center; padding-right: 6px; }
+.heat-row.wknd { color: var(--amber); }
+.heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 11px; font-size: 11px; color: var(--text-faint); }
+.heat-legend i { height: 9px; width: 120px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--heat-0), var(--heat-1), var(--heat-2), var(--heat-3)); }
+:root { --heat-0: rgba(34,211,238,.10); --heat-1: rgba(34,211,238,.45); --heat-2: #22D3EE; --heat-3: #FBBF24; }
+[data-theme="light"] { --heat-0: rgba(8,145,178,.10); --heat-1: rgba(8,145,178,.40); --heat-2: #22D3EE; --heat-3: #FBBF24; }
 
 /* --- ป้ายกำกับ --- */
 .tag {
@@ -1165,6 +1203,26 @@ pre.code {
           </div>
         </div>
 
+        <div class="card c-amber" style="margin-top:14px">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">จำนวนคนที่อยู่ในศูนย์ (ประมาณการ)</h3>
+              <p class="card-note" id="occ-note"></p>
+            </div>
+          </div>
+          <div class="chart-wrap h-300"><canvas id="ch-occ"></canvas></div>
+        </div>
+
+        <div class="card c-violet" style="margin-top:14px">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">ความหนาแน่น ชั่วโมง × วันในสัปดาห์</h3>
+              <p class="card-note" id="dh-note"></p>
+            </div>
+          </div>
+          <div class="tbl-scroll"><div id="dow-heat"></div></div>
+        </div>
+
         <div class="grid g-2" style="margin-top:14px" id="peak-cards"></div>
 
         <div class="card c-sky" style="margin-top:14px">
@@ -1208,6 +1266,17 @@ pre.code {
             <div class="chart-wrap h-340"><canvas id="ch-gates"></canvas></div>
           </div>
         </div>
+        <div class="grid g-2" style="margin-top:14px">
+          <div class="card c-mint">
+            <div class="card-head"><div><h3 class="card-title">ยอดลูกค้าแยกตามชั้น</h3><p class="card-note" id="floor-note"></p></div></div>
+            <div class="chart-wrap h-260"><canvas id="ch-floor"></canvas></div>
+          </div>
+          <div class="card c-amber">
+            <div class="card-head"><div><h3 class="card-title">สัดส่วนรายชั้น</h3><p class="card-note">เทียบกับช่วงฐาน · เรียงจากชั้นล่างขึ้นบน</p></div></div>
+            <div class="tbl-scroll"><table class="tbl" id="tbl-floor"></table></div>
+          </div>
+        </div>
+
         <div class="card c-violet" style="margin-top:14px">
           <div class="card-head"><div><h3 class="card-title">ตารางรายประตู</h3><p class="card-note">เทียบสัดส่วนและการเปลี่ยนแปลงกับช่วงฐาน</p></div></div>
           <div class="tbl-scroll" style="max-height:600px;overflow-y:auto"><table class="tbl" id="tbl-gates"></table></div>
@@ -1243,6 +1312,8 @@ pre.code {
         <div class="grid g-3" id="export-cards"></div>
         <div class="card c-mint" style="margin-top:14px">
           <div class="card-head"><div><h3 class="card-title">ตัวอย่างรายงาน</h3><p class="card-note">ภาพนี้คือสิ่งที่จะถูกบันทึกเป็น PNG / PDF</p></div></div>
+          <p id="rp-hint" class="card-note" style="display:none;margin:0 0 10px">
+            รายงานจัดหน้าแบบ A4 แนวนอน หน้าจอนี้จึงย่อลงมาเพื่อให้เห็นทั้งแผ่น — ดาวน์โหลด PDF หรือ PNG เพื่ออ่านขนาดจริง</p>
           <div id="report-canvas"></div>
         </div>
       </section>
@@ -1926,7 +1997,7 @@ function authorizeScopes() {
    ========================================================================== */
 'use strict';
 
-const APP_VERSION = '50.0';
+const APP_VERSION = '59.0';
 
 /* ---------- ค่าตั้งต้นการเชื่อมต่อ ---------- */
 /* โฟลเดอร์เดียวตามที่ผู้ใช้กำหนด — "ข้อมูลเปรียบเทียบ ยอดลูกค้าและยอดรถยนต์"
@@ -1958,10 +2029,15 @@ const charts = {};
 /* ================= เครื่องมือพื้นฐาน ================= */
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const num = n => (n == null || isNaN(n)) ? 0 : Number(n);
+/* ใช้ isFinite ไม่ใช่ isNaN — isNaN(Infinity) เป็น false ค่า Infinity จึงรอดผ่านไปได้
+   แล้วไปโผล่บนหน้าจอเป็น "∞" หรือ "Infinity%" เมื่อมีการหารด้วยศูนย์ที่ไหนสักแห่ง */
+const num = n => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
 const fmt = n => num(n).toLocaleString('th-TH', { maximumFractionDigits: 0 });
 const fmt1 = n => num(n).toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const pct = n => (n > 0 ? '+' : '') + num(n).toFixed(1) + '%';
+/* null = ฐานเป็นศูนย์ จึงคำนวณร้อยละไม่ได้ ต้องแสดง "—" ไม่ใช่ "0.0%"
+   ซึ่งจะทำให้เข้าใจผิดว่า "ไม่เปลี่ยนแปลง" */
+const pct = n => (n == null || !Number.isFinite(Number(n))) ? '—'
+  : (n > 0 ? '+' : '') + Number(n).toFixed(1) + '%';
 
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } }
 
@@ -2035,6 +2111,9 @@ const LUNAR_HOLIDAYS = {
 };
 const DOW_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
 const MONTH_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+/* ชื่อเดือนแบบปลอดภัย — ไฟล์ที่อ่านเดือนจากชื่อไม่ได้จะมี month = 0
+   ถ้าเข้าถึง MONTH_TH[-1] ตรง ๆ จะได้ undefined แล้วไปโผล่บนตารางเป็นคำว่า "undefined" */
+const monthTH = m => MONTH_TH[Number(m) - 1] || '';
 
 /** คืนข้อมูลวัน: วันในสัปดาห์ + เป็นวันหยุดหรือไม่ + ชื่อวันหยุด */
 function dayInfo(yearBE, month, day) {
@@ -2343,6 +2422,7 @@ async function loadFromDrive({ silent = false, force = false } = {}) {
             `โหลดช่วงที่เลือกแล้ว ใช้เวลา ${(ms / 1000).toFixed(1)} วินาที`, 'ok', 6000);
     }
     reportSheetErrors();
+    reportIntegrity();
   } catch (err) {
     console.error('[loadFromDrive]', err);
     setConn('error', 'เชื่อมต่อไม่สำเร็จ');
@@ -2434,6 +2514,7 @@ async function selectPeriod(slot, id) {
     setConn('ok', `${state.files.length} ช่วง`);
     renderAll();
     reportSheetErrors();
+    reportIntegrity();
   } catch (err) {
     console.error('[selectPeriod]', err);
     setConn('error', 'โหลดช่วงนี้ไม่สำเร็จ');
@@ -2454,6 +2535,61 @@ function reportSheetErrors() {
   const errs = state.files.filter(f => f.loaded)
     .flatMap(f => (f.sheetErrors || []).map(e => `${f.label}/${e.sheet}`));
   if (errs.length) toast(`⚠️ มี ${errs.length} ชีตที่อ่านไม่สำเร็จ: ${errs.slice(0, 3).join(', ')}${errs.length > 3 ? '...' : ''}`, 'warn', 7000);
+}
+
+/* =====================================================================
+   ตรวจความสอดคล้องของตัวเลขภายในช่วงเดียวกัน
+   ---------------------------------------------------------------------
+   ตัวเลขอาจ "อ่านได้" แต่ยังขัดแย้งกันเอง ซึ่งอันตรายกว่าอ่านไม่ได้
+   เพราะแดชบอร์ดจะแสดงออกมาสวยงามโดยไม่มีสัญญาณเตือนใด ๆ
+   คืนค่าเป็นรายการข้อความ เพื่อให้ทั้งรายงานและ toast ใช้ชุดเดียวกัน
+   ===================================================================== */
+function integrityIssues(f) {
+  const out = [];
+  if (!f || !f.agg) return out;
+  const g = f.agg, t = g.total;
+
+  // 1) ผลรวมรายประตู ต้องเท่ากับยอดลูกค้าเข้ารวม (ยอมรับคลาดเคลื่อน 0.5%)
+  const gateSum = g.gates.reduce((s, x) => s + x.in, 0) + num(g.orphanGateIn);
+  if (t.cIn > 0 && gateSum > 0) {
+    const diff = Math.abs(gateSum - t.cIn) / t.cIn * 100;
+    if (diff > 0.5) out.push(`ผลรวมรายประตู (${fmt(gateSum)}) ต่างจากยอดลูกค้าเข้ารวม (${fmt(t.cIn)}) ร้อยละ ${diff.toFixed(1)}`);
+  }
+  if (t.cIn > 0 && gateSum === 0) out.push('มียอดลูกค้าเข้า แต่ไม่มีข้อมูลรายประตูเลย — การวิเคราะห์รายประตูและรายชั้นจะใช้ไม่ได้');
+  // 2) ค่ารายประตูเกินจำนวนชื่อประตูที่ประกาศไว้
+  if (num(g.orphanGateIn) > 0) out.push(`มียอดรายประตู ${fmt(g.orphanGateIn)} คน ที่ไม่มีชื่อประตูรองรับ`);
+  // 2.1) มียอดรวม แต่ตารางรายชั่วโมงว่างเปล่า — ชี้ชั่วโมงเร่งด่วนไม่ได้
+  if (t.cIn > 0 && g.peaks.cIn.empty) out.push('มียอดลูกค้าเข้า แต่ตารางรายชั่วโมงเป็นศูนย์ทั้งหมด — วิเคราะห์ชั่วโมงเร่งด่วนไม่ได้');
+  // 3) ผลรวมรายชั่วโมง ต้องเท่ากับยอดรวมของตัววัดเดียวกัน
+  const hourChecks = [['cIn', 'ลูกค้าเข้า'], ['cOut', 'ลูกค้าออก']];
+  for (const [k, lb] of hourChecks) {
+    const hs = (g.hrSum[k] || []).reduce((s, v) => s + num(v), 0);
+    if (t[k] > 0 && hs > 0) {
+      const d = Math.abs(hs - t[k]) / t[k] * 100;
+      if (d > 0.5) out.push(`ผลรวมรายชั่วโมงของ${lb} ต่างจากยอดรวมร้อยละ ${d.toFixed(1)}`);
+    }
+  }
+  // 4) ยอดออกมากกว่ายอดเข้าอย่างผิดสังเกต (เกิน 10%)
+  if (t.cIn > 0 && t.cOut > t.cIn * 1.1) {
+    out.push(`ยอดลูกค้าออกสูงกว่ายอดเข้าร้อยละ ${((t.cOut / t.cIn - 1) * 100).toFixed(1)} ซึ่งผิดปกติ`);
+  }
+  // 5) ค่าติดลบ — ไม่ควรมีในข้อมูลนับจำนวน
+  const neg = SUM_KEYS.filter(k => t[k] < 0);
+  if (neg.length) out.push(`พบค่าติดลบในตัววัด: ${neg.join(', ')}`);
+  // 6) วันที่ไม่มีข้อมูลในช่วงที่ควรมีแล้ว
+  if (g.emptyDayCount > 0 && g.days > 0) out.push(`มีวันที่ยังไม่มีข้อมูล ${g.emptyDayCount} วัน`);
+  return out;
+}
+
+/** แจ้งเตือนความไม่สอดคล้องของช่วงที่กำลังแสดงอยู่ */
+function reportIntegrity() {
+  for (const f of [A(), B()].filter(Boolean)) {
+    const iss = integrityIssues(f).filter(x => !x.startsWith('มีวันที่ยังไม่มีข้อมูล'));
+    if (iss.length) {
+      console.warn('[integrity]', f.label, iss);
+      toast(`⚠️ ตรวจพบความไม่สอดคล้องใน ${f.label}:\n• ${iss.slice(0, 3).join('\n• ')}`, 'warn', 10000);
+    }
+  }
 }
 
 /** เชื่อมต่อได้ แต่ไม่มีไฟล์ — คนละปัญหากับเชื่อมต่อไม่ได้ ต้องบอกให้ชัด */
@@ -2593,6 +2729,14 @@ const METRICS = [
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m => [m.key, m]));
 const SUM_KEYS = ['cIn', 'cOut', 'vIn24', 'vIn', 'vOut24', 'vOut', 'mc', 'taxi', 'dlv'];
 
+/* ลำดับชั้นสำหรับเรียงผล — ชั้นใต้ดินมาก่อน แล้วไล่ขึ้นไป */
+const FLOOR_ORDER = ['B', '1', '2', '3', '4', '5', '6', 'อื่น ๆ'];
+/** ดึงเลขชั้นจากชื่อประตู รองรับทั้ง "ชั้น" และ "ขั้น" (มีพิมพ์ผิดจริงในข้อมูล) */
+function floorOf(name) {
+  const m = String(name || '').match(/[ชข]ั้น\s*\.?\s*([B1-9])/i);
+  return m ? m[1].toUpperCase() : 'อื่น ๆ';
+}
+
 function zeros(n) { return new Array(n).fill(0); }
 function addInto(dst, src) { for (let i = 0; i < dst.length; i++) dst[i] += num(src && src[i]); return dst; }
 
@@ -2622,7 +2766,7 @@ function aggregate(file) {
   const rows = [];
   for (const d of days) {
     const info = dayInfo(file.year, file.month, d.d);
-    const row = { ...d, ...info, dateLabel: `${d.d} ${MONTH_TH[file.month - 1] || ''} ${file.year}` };
+    const row = { ...d, ...info, dateLabel: `${d.d} ${monthTH(file.month)} ${file.year || ''}`.trim() };
     rows.push(row);
 
     SUM_KEYS.forEach(k => { total[k] += num(d[k]); });
@@ -2680,6 +2824,11 @@ function aggregate(file) {
     name: nm, in: num(gateIn[i]), out: num(gateOut[i]),
     both: num(gateIn[i]) + num(gateOut[i]),
   }));
+  /* ถ้าวันไหนส่งค่ารายประตูมามากกว่าจำนวนชื่อประตู ค่าส่วนเกินจะตกหล่นเงียบ ๆ
+     ทำให้ผลรวมรายประตูน้อยกว่ายอดลูกค้าเข้ารวม และเปอร์เซ็นต์รายประตูเพี้ยนทั้งชุด
+     จึงนับไว้เพื่อให้ชั้นตรวจสอบข้อมูลหยิบไปเตือนได้ */
+  let orphanGateIn = 0;
+  for (let i = names.length; i < gateIn.length; i++) orphanGateIn += num(gateIn[i]);
 
   // ค่าเฉลี่ยวันธรรมดา/วันหยุด
   for (const key of ['weekday', 'holiday']) {
@@ -2687,10 +2836,62 @@ function aggregate(file) {
     b.avg = Object.fromEntries(SUM_KEYS.map(k => [k, b.n ? b[k] / b.n : 0]));
   }
 
+  /* ---------- ประมาณจำนวนคนที่อยู่ในศูนย์รายชั่วโมง ----------
+     คิดจาก "เข้าสะสม − ออกสะสม" ไล่ตั้งแต่ 10.00 น. เป็นต้นไป
+     ค่านี้ต่างจาก "ชั่วโมงที่คนเข้ามากสุด" ที่แดชบอร์ดรายงานอยู่เดิม
+     เพราะคนที่เข้ามาตอน 13.00 ยังอยู่ในศูนย์ตอน 15.00 ด้วย
+     ชั่วโมงที่คน "อยู่" หนาแน่นสุดคือชั่วโมงที่ต้องใช้กำลังพลและระบบปรับอากาศมากสุด
+     หมายเหตุ: เป็นค่าประมาณ เพราะตารางลูกค้าเริ่มนับ 10.00 น. และบางประตู
+     (Starbucks / Uniqlo) เริ่มนับคนละเวลา จึงมีเศษค้างเล็กน้อยตอนปิดศูนย์ */
+  let run = 0;
+  const occupancy = hrAvg.cIn.map((v, i) => { run += v - hrAvg.cOut[i]; return Math.max(0, run); });
+  let oi = 0;
+  occupancy.forEach((v, i) => { if (v > occupancy[oi]) oi = i; });
+  const occPeak = occupancy[oi] > 0
+    ? { hour: HOURS_CUST[oi], label: hLabel(HOURS_CUST[oi]), value: occupancy[oi], index: oi, empty: false }
+    : { hour: null, label: '—', value: 0, index: -1, empty: true };
+
+  /* ---------- ตารางความหนาแน่น ชั่วโมง × วันในสัปดาห์ ----------
+     รูปแบบของแต่ละวันไม่เหมือนกัน (เสาร์-อาทิตย์พีคตอนบ่าย วันทำงานพีคตอนเย็น)
+     ตารางเวรที่ใช้เวลาเดียวทั้งสัปดาห์จึงไม่ตรงกับความจริง */
+  const dowSum = Array.from({ length: 7 }, () => zeros(15));
+  const dowCnt = zeros(7);
+  for (const r of rows) {
+    if (r.dow < 0) continue;                 // วันที่อ่านไม่ได้ ไม่นำมาคิด
+    dowCnt[r.dow]++;
+    for (let i = 0; i < 15; i++) dowSum[r.dow][i] += num(r.cInH && r.cInH[i]);
+  }
+  const dowHour = dowSum.map((arr, g) => arr.map(v => (dowCnt[g] ? v / dowCnt[g] : 0)));
+  let dhBest = { v: -1, dow: -1, hour: null };
+  dowHour.forEach((arr, g) => arr.forEach((v, i) => {
+    if (v > dhBest.v) dhBest = { v, dow: g, hour: HOURS_CUST[i] };
+  }));
+  const dowMax = Math.max(0, ...dowHour.flat());
+
+  /* ---------- สรุปตามชั้นอาคาร ----------
+     ดึงเลขชั้นจากชื่อประตูโดยตรง เช่น "ประตู Watsons 1 ชั้น.B" → ชั้น B
+     รองรับไฟล์ที่พิมพ์ "ขั้น" แทน "ชั้น" ซึ่งมีจริงในข้อมูล 2 ประตู */
+  const floorMap = new Map();
+  for (const g of gates) {
+    const fl = floorOf(g.name);
+    if (!floorMap.has(fl)) floorMap.set(fl, { floor: fl, in: 0, out: 0, gates: 0 });
+    const e = floorMap.get(fl);
+    e.in += g.in; e.out += g.out; e.gates++;
+  }
+  const floorTotal = gates.reduce((t, g) => t + g.in, 0);
+  /* ชั้นที่ไม่อยู่ใน FLOOR_ORDER (เช่นมีชั้น 7 เพิ่มในอนาคต) ต้องไปอยู่ท้ายสุด
+     ถ้าใช้ indexOf ตรง ๆ จะได้ -1 แล้วถูกเรียงขึ้นมาก่อนชั้น B ซึ่งผิดลำดับอาคาร */
+  const floorRank = f => { const i = FLOOR_ORDER.indexOf(f); return i < 0 ? FLOOR_ORDER.length : i; };
+  const floors = [...floorMap.values()]
+    .map(f => ({ ...f, share: floorTotal ? f.in / floorTotal * 100 : 0 }))
+    .sort((x, y) => floorRank(x.floor) - floorRank(y.floor) || (x.floor < y.floor ? -1 : 1));
+
   // hasData ใช้ยอดรวม ไม่ใช่จำนวนวัน — เดือนที่มีชีตครบแต่ยอดเป็นศูนย์ต้องถือว่า "ไม่มีข้อมูล"
   const grand = SUM_KEYS.reduce((t, k) => t + total[k], 0);
   return { days: n, emptyDayCount, hasData: grand > 0, total, avg,
-           hrSum: hr, hrAvg, peaks, gates, extremes, rows, wk };
+           hrSum: hr, hrAvg, peaks, gates, extremes, rows, wk,
+           occupancy, occPeak, dowHour, dowCnt, dowMax, dhBest, floors, floorTotal,
+           orphanGateIn };
 }
 
 /** เปอร์เซ็นต์เปลี่ยนแปลง — คืน null เมื่อฐานเป็น 0 (หารไม่ได้ ไม่ใช่ 0%) */
@@ -2747,14 +2948,19 @@ function pickDefaults() {
 /** ชื่อความสัมพันธ์ของสองช่วง เพื่อบอกผู้ใช้ว่ากำลังดู MoM หรือ YoY */
 function compareKind(a, b) {
   if (!a || !b) return '';
+  if (a.id === b.id) return 'ช่วงเดียวกัน';
+  if (!a.month || !a.year || !b.month || !b.year) return 'เทียบช่วง';
   if (a.month === b.month && a.year !== b.year) return 'YoY (ปีต่อปี)';
-  if (a.year === b.year && Math.abs(a.month - b.month) === 1) return 'MoM (เดือนต่อเดือน)';
+  /* เทียบเป็นจำนวนเดือนสะสม เพื่อให้ ธ.ค. ↔ ม.ค. ข้ามปีนับเป็น MoM ด้วย
+     ถ้าเทียบเฉพาะ month จะได้ผลต่าง 11 แล้วตกไปเป็น "เทียบช่วง" ทั้งที่เป็นเดือนติดกัน */
+  const mi = f => f.year * 12 + f.month;
+  if (Math.abs(mi(a) - mi(b)) === 1) return 'MoM (เดือนต่อเดือน)';
   return 'เทียบช่วง';
 }
 
 /** จำนวนวันที่เทียบกันได้จริง — ใช้เตือนเมื่อสองช่วงมีจำนวนวันไม่เท่ากัน */
 function comparabilityNote(a, b) {
-  if (!a || !b) return '';
+  if (!a || !b || !a.agg || !b.agg) return '';
   if (a.id === b.id) return '⚠️ เลือกช่วงเดียวกันทั้งสองฝั่ง — ตัวเลขเปรียบเทียบจะเป็น 0% ทั้งหมด';
   if (!a.agg.days) return `⚠️ ${a.label} ยังไม่มีข้อมูล`;
   if (!b.agg.days) return `⚠️ ${b.label} ยังไม่มีข้อมูล จึงเทียบไม่ได้`;
@@ -3130,6 +3336,35 @@ function renderHourly() {
     options: baseChartOpts(p),
   });
 
+  /* ---------- จำนวนคนที่อยู่ในศูนย์ ----------
+     ต่างจาก "คนเข้ารายชั่วโมง" ตรงที่คนที่เข้ามาแล้วยังอยู่ในศูนย์ถูกนับต่อเนื่อง
+     จุดสูงสุดของเส้นนี้คือชั่วโมงที่ต้องใช้กำลังพลมากที่สุดจริง ๆ */
+  const occ = a.agg.occupancy.map(v => Math.round(v));
+  const op = a.agg.occPeak;
+  $('#occ-note').textContent = op.empty
+    ? 'ไม่มีข้อมูลพอจะประมาณการ'
+    : `เฉลี่ยต่อวัน · หนาแน่นสุด ${op.label} น. ประมาณ ${fmt(Math.round(op.value))} คน` +
+      (a.agg.peaks.cIn.empty ? '' : ` (ชั่วโมงที่คนเข้ามากสุดคือ ${a.agg.peaks.cIn.label} น.)`);
+  destroyChart('occ');
+  charts.occ = new Chart($('#ch-occ'), {
+    type: 'line',
+    data: {
+      labels: HOURS_CUST.map(hLabel),
+      datasets: [{
+        label: 'คนอยู่ในศูนย์ (ประมาณการ)', data: occ,
+        borderColor: p.amber, backgroundColor: areaGrad(p.amber),
+        borderWidth: 3, fill: true, tension: .38,
+        pointRadius: (c) => c.dataIndex === op.index ? 6 : 0,
+        pointBackgroundColor: p.amber, pointBorderColor: p.surface, pointBorderWidth: 2,
+        pointHoverRadius: 6,
+      }],
+    },
+    options: baseChartOpts(p, { legend: false }),
+  });
+
+  /* ---------- ตารางความหนาแน่น ชั่วโมง × วันในสัปดาห์ ---------- */
+  renderDowHeat(a, p);
+
   // การ์ดชั่วโมงเร่งด่วน
   const pk = a.agg.peaks;
   const cards = [
@@ -3137,6 +3372,8 @@ function renderHourly() {
     { t: 'ชั่วโมงลูกค้าออกหนาแน่นสุด', v: pk.cOut, u: 'คน/ชม.',  c: 'sky' },
     { t: 'ชั่วโมงรถยนต์เข้าหนาแน่นสุด', v: pk.vIn,  u: 'คัน/ชม.', c: 'mint' },
     { t: 'ชั่วโมงรถยนต์ออกหนาแน่นสุด', v: pk.vOut, u: 'คัน/ชม.', c: 'violet' },
+    // ★ ชั่วโมงที่ "คนอยู่ในศูนย์" มากสุด — คนละค่ากับชั่วโมงที่คนเข้ามากสุด
+    { t: 'ชั่วโมงคนอยู่ในศูนย์มากสุด', v: a.agg.occPeak, u: 'คน', c: 'amber' },
   ];
   $('#peak-cards').innerHTML = cards.map(c => `
     <div class="card kpi" style="${kpiVars(c.c, 'i-clock')}">
@@ -3175,6 +3412,47 @@ function renderHourly() {
     </tr></thead><tbody>${rows}</tbody>`;
 }
 
+/** ตารางความหนาแน่น 7 วัน × 15 ชั่วโมง — วาดด้วย CSS grid ไม่ต้องใช้ไลบรารีเพิ่ม */
+function renderDowHeat(a, p) {
+  const DOW_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const el = $('#dow-heat');
+  if (!el) return;
+  const max = a.agg.dowMax || 1;
+  const best = a.agg.dhBest;
+
+  $('#dh-note').textContent = best.dow >= 0
+    ? `ลูกค้าเข้าเฉลี่ยต่อชั่วโมง · หนาแน่นสุดวัน${DOW_TH[best.dow]} ${hLabel(best.hour)} น. (${fmt(Math.round(best.v))} คน/ชม.)`
+    : 'ลูกค้าเข้าเฉลี่ยต่อชั่วโมง';
+
+  /* ไล่สีตามค่า: จางสุด → ฟ้า → เหลือง
+     ช่องที่เข้มเกิน 55% ใช้ตัวอักษรสีเข้มเพื่อให้ยังอ่านออก */
+  const shade = (v) => {
+    const t = max ? v / max : 0;
+    if (t < .04) return { bg: 'var(--surface-2)', cls: 'dim' };
+    if (t < .45) return { bg: `color-mix(in srgb, ${p.accent} ${Math.round(t * 120)}%, transparent)`, cls: 'dim' };
+    if (t < .75) return { bg: p.accent, cls: 'v' };
+    return { bg: p.amber, cls: 'v' };
+  };
+
+  let html = `<div class="heat" style="grid-template-columns:34px repeat(${HOURS_CUST.length},1fr)">`;
+  html += '<div></div>' + HOURS_CUST.map(h => `<div class="heat-head">${String(h).padStart(2, '0')}</div>`).join('');
+  for (let g = 0; g < 7; g++) {
+    if (!a.agg.dowCnt[g]) continue;                 // ช่วงสั้น ๆ อาจไม่มีวันนั้นเลย
+    const wknd = (g === 0 || g === 6);
+    html += `<div class="heat-row${wknd ? ' wknd' : ''}">${DOW_SHORT[g]}</div>`;
+    html += a.agg.dowHour[g].map((v, i) => {
+      const r = Math.round(v), sh = shade(v);
+      const isBest = g === best.dow && HOURS_CUST[i] === best.hour;
+      return `<div class="heat-cell ${sh.cls}" style="background:${sh.bg}${isBest ? ';box-shadow:0 0 0 2px var(--amber)' : ''}" ` +
+             `title="วัน${DOW_TH[g]} ${hLabel(HOURS_CUST[i])} น. · ${fmt(r)} คน/ชม.">${r >= 1000 ? (r / 1000).toFixed(1) + 'k' : r}</div>`;
+    }).join('');
+  }
+  html += '</div>';
+  html += `<div class="heat-legend"><span>น้อย</span><i></i><span>มาก</span>
+           <span style="margin-left:auto">กรอบเหลือง = ช่วงหนาแน่นที่สุดของสัปดาห์</span></div>`;
+  el.innerHTML = html;
+}
+
 /* ========================= รายวัน ========================= */
 function renderDaily() {
   const a = A();
@@ -3197,7 +3475,7 @@ function renderDaily() {
     stat('วันที่รถยนต์มากสุด', ex.vIn24.max, 'vIn24', 'mint');
 
   const rows = a.agg.rows.map(r => `<tr${r.isHoliday ? ' style="background:var(--amber-a07)"' : ''}>
-      <td>${r.d} ${MONTH_TH[a.month - 1]}</td>
+      <td>${r.d} ${monthTH(a.month)}</td>
       <td>${r.dowName}${r.holidayName ? ` <span class="tag amber">${r.holidayName}</span>` : (r.weekend ? ' <span class="tag">วันหยุด</span>' : '')}</td>
       <td class="num">${fmt(r.cIn)}</td><td class="num">${fmt(r.cOut)}</td>
       <td class="num">${fmt(r.vIn24)}</td><td class="num">${fmt(r.vOut24)}</td>
@@ -3255,13 +3533,56 @@ function renderGates() {
       } },
   });
 
+  /* ---------- สรุปตามชั้นอาคาร ----------
+     ดึงเลขชั้นจากชื่อประตูโดยตรง จึงได้มิติใหม่โดยไม่ต้องเก็บข้อมูลเพิ่ม */
+  const fl = a.agg.floors;
+  $('#floor-note').textContent =
+    `${a.label} · ${fl.length} ชั้น · รวม ${fmt(a.agg.floorTotal)} คน`;
+  destroyChart('floor');
+  charts.floor = new Chart($('#ch-floor'), {
+    type: 'bar',
+    data: {
+      labels: fl.map(f => f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor),
+      datasets: [
+        { label: 'ขาเข้า', data: fl.map(f => f.in), backgroundColor: vGrad(p.mint, p.accent), borderRadius: 7, maxBarThickness: 34, borderSkipped: false },
+        { label: 'ขาออก', data: fl.map(f => f.out), backgroundColor: vGrad(p.violet, p.rose, 'cc', '44'), borderRadius: 7, maxBarThickness: 34, borderSkipped: false },
+      ],
+    },
+    options: baseChartOpts(p),
+  });
+
+  // ตารางรายชั้น — เทียบสัดส่วนกับช่วงฐาน (หน่วยเป็น "จุด" ไม่ใช่ %)
+  const bFloor = b ? Object.fromEntries(b.agg.floors.map(f => [f.floor, f])) : {};
+  $('#tbl-floor').innerHTML = `<thead><tr>
+      <th>ชั้น</th><th>ประตู</th><th>ลูกค้าเข้า</th><th>สัดส่วน</th><th>เทียบ ${b ? b.label : '—'}</th>
+    </tr></thead><tbody>${fl.map(f => {
+      const bf = bFloor[f.floor];
+      const d = bf ? delta(f.in, bf.in) : null;
+      const shift = bf ? (f.share - bf.share) : null;
+      const cls = d == null ? 'flat' : d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat';
+      return `<tr>
+        <td>${f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor}</td>
+        <td class="num">${f.gates}</td>
+        <td class="num">${fmt(f.in)}</td>
+        <td class="bar-cell"><i style="width:${f.share}%"></i><span class="num">${f.share.toFixed(1)}%</span></td>
+        <td><span class="delta ${cls}">${d == null ? '—' : pct(d)}</span>${
+          shift == null ? '' : `<span class="kpi-sub" style="margin-left:6px">${shift > 0 ? '+' : ''}${shift.toFixed(1)} จุด</span>`}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
   const bByName = b ? Object.fromEntries(b.agg.gates.map(g => [g.name, g])) : {};
+  const bGrand = b ? b.agg.gates.reduce((s, g) => s + g[dir], 0) : 0;
   const maxV = (gates.length && gates[0][dir] > 0) ? gates[0][dir] : 1;   // กันหารศูนย์
   const rows = gates.map((g, i) => {
     const bg = bByName[g.name];
     const d = bg ? delta(g[dir], bg[dir]) : null;
     const cls = d == null ? 'flat' : d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat';
     const share = grand ? (g[dir] / grand * 100) : 0;
+    /* สัดส่วนที่เปลี่ยนไป (หน่วย "จุด") บอกว่าประตูนี้ "แย่งส่วนแบ่ง" มาได้หรือเสียไป
+       ต่างจาก % เติบโต เพราะถ้าทั้งศูนย์โตเท่ากันหมด สัดส่วนจะไม่เปลี่ยน */
+    const bShare = (bg && bGrand) ? (bg[dir] / bGrand * 100) : null;
+    const shift = bShare == null ? null : share - bShare;
+    const scls = shift == null ? 'flat' : shift > 0.05 ? 'up' : shift < -0.05 ? 'down' : 'flat';
     return `<tr>
       <td style="color:var(--text-faint)">${i + 1}</td>
       <td>${g.name}</td>
@@ -3269,12 +3590,13 @@ function renderGates() {
       <td class="num">${fmt(g.out)}</td>
       <td class="bar-cell"><i style="width:${maxV ? (g[dir] / maxV * 100) : 0}%"></i><span class="num">${fmt(g[dir])}</span></td>
       <td class="num">${share.toFixed(1)}%</td>
+      <td><span class="delta ${scls}">${shift == null ? '—' : (shift > 0 ? '+' : '') + shift.toFixed(2)}</span></td>
       <td><span class="delta ${cls}">${d == null ? '—' : pct(d)}</span></td>
     </tr>`;
   }).join('');
   $('#tbl-gates').innerHTML = `<thead><tr>
       <th>#</th><th>จุดประตู</th><th>ขาเข้า</th><th>ขาออก</th>
-      <th>กราฟเทียบ · ${dir === 'in' ? 'ขาเข้า' : dir === 'out' ? 'ขาออก' : 'รวมเข้า-ออก'}</th><th>สัดส่วน</th><th>เทียบ ${b ? b.label : '—'}</th>
+      <th>กราฟเทียบ · ${dir === 'in' ? 'ขาเข้า' : dir === 'out' ? 'ขาออก' : 'รวมเข้า-ออก'}</th><th>สัดส่วน</th><th title="สัดส่วนที่เปลี่ยนไป หน่วยเป็นจุด">ส่วนแบ่ง ±</th><th>เทียบ ${b ? b.label : '—'}</th>
     </tr></thead><tbody>${rows}</tbody>`;
 }
 
@@ -3327,6 +3649,237 @@ function renderCompare() {
      </div>`).join('');
 }
 
+/* =====================================================================
+   เครื่องมือเขียนบทวิเคราะห์สำหรับรายงาน
+   ---------------------------------------------------------------------
+   เขียนจากตัวเลขในชุดข้อมูลล้วน ๆ ไม่เรียกบริการภายนอก จึงทำงานออฟไลน์ได้
+   และผลลัพธ์ตรวจสอบย้อนได้ทุกตัวเลขว่ามาจากไหน
+   ===================================================================== */
+
+/** อัตราส่วนคนต่อรถยนต์ — บ่งชี้การเดินทางด้วยขนส่งสาธารณะเทียบกับรถส่วนตัว */
+function peoplePerCar(f) {
+  const c = f.agg.total.vIn24;
+  return c ? f.agg.total.cIn / c : 0;
+}
+
+/** ชั่วโมงที่หนาแน่นที่สุดของแต่ละวันในสัปดาห์ */
+function peakHourByDow(f) {
+  return f.agg.dowHour.map((arr, g) => {
+    if (!f.agg.dowCnt[g]) return null;
+    let bi = 0;
+    arr.forEach((v, i) => { if (v > arr[bi]) bi = i; });
+    return { dow: g, hour: HOURS_CUST[bi], value: arr[bi] };
+  });
+}
+
+/**
+ * บทวิเคราะห์เชิงรายงาน — คืนเป็นหัวข้อ ๆ พร้อมเนื้อความ
+ * ใช้ได้ทั้งในรายงาน PDF/PNG และสไลด์นำเสนอ
+ */
+function buildReportAnalysis(a, b) {
+  const S = [];
+  const ag = a.agg;
+  const t = ag.total, av = ag.avg;
+  const pk = ag.peaks, op = ag.occPeak;
+
+  // ---------- 1. ภาพรวม ----------
+  const dCin = b ? delta(av.cIn, b.agg.avg.cIn) : null;
+  const dir = dCin == null ? '' : dCin > 0.05 ? 'เพิ่มขึ้น' : dCin < -0.05 ? 'ลดลง' : 'ทรงตัว';
+  let s1 = `ช่วง ${a.label} มีผู้ใช้บริการเข้าศูนย์รวม ${fmt(t.cIn)} คน จากข้อมูล ${ag.days} วัน ` +
+           `คิดเป็นค่าเฉลี่ย ${fmt(Math.round(av.cIn))} คนต่อวัน`;
+  if (dCin != null) {
+    s1 += ` เมื่อเทียบกับ ${b.label} ซึ่งมีค่าเฉลี่ย ${fmt(Math.round(b.agg.avg.cIn))} คนต่อวัน ` +
+          `พบว่า${dir}ร้อยละ ${Math.abs(dCin).toFixed(1)}`;
+    if (ag.days !== b.agg.days) {
+      s1 += ` ทั้งนี้สองช่วงมีจำนวนวันไม่เท่ากัน (${ag.days} วัน และ ${b.agg.days} วัน) ` +
+            `การเปรียบเทียบจึงใช้ค่าเฉลี่ยต่อวันเป็นเกณฑ์ ไม่ใช้ยอดรวม`;
+    }
+  }
+  S.push({ no: 1, title: 'ภาพรวมการใช้บริการ', body: s1 + '' });
+
+  // ---------- 2. การเปลี่ยนแปลงรายประเภท ----------
+  if (b) {
+    const movers = METRICS
+      .map(m => ({ m, d: delta(av[m.key], b.agg.avg[m.key]) }))
+      .filter(x => x.d != null && isFinite(x.d));
+    movers.sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+    const up = movers.filter(x => x.d > 0).slice(0, 2);
+    const dn = movers.filter(x => x.d < 0).slice(0, 2);
+    let s2 = '';
+    if (up.length) s2 += `ประเภทที่เติบโตเด่นชัดที่สุดคือ ` +
+      up.map(x => `${x.m.label} (เพิ่มขึ้นร้อยละ ${x.d.toFixed(1)} เป็นเฉลี่ย ${fmt(Math.round(av[x.m.key]))} ${x.m.unit}ต่อวัน)`).join(' และ ') + ' ';
+    if (dn.length) s2 += `ขณะที่ประเภทที่ปรับตัวลดลงมากที่สุดคือ ` +
+      dn.map(x => `${x.m.label} (ลดลงร้อยละ ${Math.abs(x.d).toFixed(1)})`).join(' และ ');
+    if (!s2) s2 = 'ไม่มีช่วงฐานสำหรับเปรียบเทียบการเปลี่ยนแปลงรายประเภท';
+    S.push({ no: S.length + 1, title: 'การเปลี่ยนแปลงรายประเภท', body: s2.trim() });
+  }
+
+  // ---------- 3. พฤติกรรมช่วงเวลา ----------
+  let s3 = '';
+  if (!pk.cIn.empty) {
+    s3 += `ชั่วโมงที่มีผู้เข้าศูนย์มากที่สุดคือ ${pk.cIn.label} น. เฉลี่ย ${fmt(Math.round(pk.cIn.value))} คนต่อชั่วโมง`;
+  }
+  if (!op.empty) {
+    s3 += ` อย่างไรก็ตาม เมื่อประมาณจำนวนผู้ที่อยู่ภายในศูนย์ ณ แต่ละช่วงเวลา ` +
+          `(คำนวณจากยอดเข้าสะสมหักยอดออกสะสม) พบว่าช่วงที่มีผู้อยู่ภายในหนาแน่นที่สุดคือ ` +
+          `${op.label} น. ประมาณ ${fmt(Math.round(op.value))} คน`;
+    if (!pk.cIn.empty && op.label !== pk.cIn.label) {
+      s3 += ` ซึ่งเป็นคนละช่วงกับชั่วโมงที่มีผู้เข้ามากที่สุด ` +
+            `ข้อมูลนี้มีนัยต่อการจัดกำลังพล ระบบปรับอากาศ และแผนความปลอดภัย ` +
+            `เนื่องจากภาระงานสูงสุดเกิดขึ้นก่อนชั่วโมงที่มีผู้เข้าสูงสุด`;
+    }
+  }
+  S.push({ no: S.length + 1, title: 'พฤติกรรมตามช่วงเวลา', body: s3 || 'ข้อมูลรายชั่วโมงไม่เพียงพอต่อการวิเคราะห์' });
+
+  // ---------- 4. รูปแบบรายวัน ----------
+  const ph = peakHourByDow(a).filter(Boolean);
+  let s4 = '';
+  if (ph.length) {
+    const wknd = ph.filter(x => x.dow === 0 || x.dow === 6);
+    const wday = ph.filter(x => x.dow >= 1 && x.dow <= 5);
+    const avgH = arr => arr.length ? (arr.reduce((s2, x) => s2 + x.hour, 0) / arr.length) : null;
+    const hw = avgH(wknd), hd = avgH(wday);
+    const top = ph.slice().sort((x, y) => y.value - x.value)[0];
+    s4 = `ช่วงเวลาที่หนาแน่นที่สุดของสัปดาห์คือวัน${DOW_TH[top.dow]} เวลา ${hLabel(top.hour)} น. ` +
+         `เฉลี่ย ${fmt(Math.round(top.value))} คนต่อชั่วโมง`;
+    if (hw != null && hd != null && Math.abs(hw - hd) >= 1) {
+      s4 += ` รูปแบบของวันหยุดสุดสัปดาห์และวันทำงานแตกต่างกันอย่างมีนัยสำคัญ ` +
+            `โดยวันเสาร์-อาทิตย์หนาแน่นสูงสุดราว ${hLabel(Math.round(hw))} น. ` +
+            `ส่วนวันจันทร์ถึงศุกร์หนาแน่นสูงสุดราว ${hLabel(Math.round(hd))} น. ` +
+            `จึงไม่ควรใช้ตารางกำลังพลรูปแบบเดียวตลอดทั้งสัปดาห์`;
+    }
+  }
+  const wd = ag.wk.weekday.avg.cIn, hd2 = ag.wk.holiday.avg.cIn;
+  const dw = delta(hd2, wd);
+  if (dw != null) {
+    s4 += ` เมื่อแยกตามประเภทวัน พบว่าวันหยุดมีผู้ใช้บริการเฉลี่ย ${fmt(Math.round(hd2))} คนต่อวัน ` +
+          `${dw > 0 ? 'สูงกว่า' : 'ต่ำกว่า'}วันธรรมดา (${fmt(Math.round(wd))} คนต่อวัน) ร้อยละ ${Math.abs(dw).toFixed(1)} ` +
+          `จากวันหยุด ${ag.wk.holiday.n} วัน และวันธรรมดา ${ag.wk.weekday.n} วัน`;
+  }
+  if (s4) S.push({ no: S.length + 1, title: 'รูปแบบการใช้บริการรายวัน', body: s4.trim() });
+
+  // ---------- 5. จุดเข้า-ออก และการกระจายตัว ----------
+  const gs = ag.gates.slice().sort((x, y) => y.in - x.in);
+  const grand = ag.gates.reduce((s2, g) => s2 + g.in, 0);
+  let s5 = '';
+  if (gs.length && grand) {
+    const top3 = gs.slice(0, 3);
+    const top3Share = top3.reduce((s2, g) => s2 + g.in, 0) / grand * 100;
+    s5 = `ผู้ใช้บริการเข้าศูนย์ผ่านจุดประตูทั้งหมด ${ag.gates.length} จุด ` +
+         `โดยประตูที่มีผู้ใช้มากที่สุดคือ ${top3[0].name.trim()} จำนวน ${fmt(top3[0].in)} คน ` +
+         `คิดเป็นร้อยละ ${(top3[0].in / grand * 100).toFixed(1)} ของทั้งหมด ` +
+         `และสามอันดับแรกรวมกันคิดเป็นร้อยละ ${top3Share.toFixed(1)} ` +
+         `สะท้อนว่าการเข้าออกกระจุกตัวอยู่ที่จุดหลักเพียงไม่กี่จุด`;
+  }
+  if (ag.floors && ag.floors.length) {
+    const fl = ag.floors.slice().sort((x, y) => y.in - x.in);
+    s5 += ` เมื่อจำแนกตามชั้นอาคาร ชั้นที่มีผู้เข้ามากที่สุดคือ` +
+          `${fl[0].floor === 'อื่น ๆ' ? fl[0].floor : 'ชั้น ' + fl[0].floor} ร้อยละ ${fl[0].share.toFixed(1)} ` +
+          `รองลงมาคือ${fl[1] ? (fl[1].floor === 'อื่น ๆ' ? fl[1].floor : 'ชั้น ' + fl[1].floor) + ' ร้อยละ ' + fl[1].share.toFixed(1) : '—'}`;
+  }
+  // การเปลี่ยนแปลงส่วนแบ่งของประตู
+  if (b) {
+    const bGrand = b.agg.gates.reduce((s2, g) => s2 + g.in, 0);
+    const bMap = Object.fromEntries(b.agg.gates.map(g => [g.name, g]));
+    /* ต้องมียอดรวมทั้งสองฝั่ง — ถ้าฝั่งใดเป็นศูนย์ การหารจะได้ Infinity
+       แล้วข้อความจะกลายเป็น "เพิ่มขึ้น NaN จุด" */
+    if (bGrand && grand) {
+      const shifts = ag.gates.map(g => {
+        const bg = bMap[g.name];
+        if (!bg) return null;
+        return { name: g.name, shift: (g.in / grand * 100) - (bg.in / bGrand * 100) };
+      }).filter(Boolean).sort((x, y) => Math.abs(y.shift) - Math.abs(x.shift));
+      if (shifts.length && Math.abs(shifts[0].shift) >= 0.3) {
+        const sh = shifts[0];
+        s5 += ` ประตูที่มีส่วนแบ่งเปลี่ยนแปลงมากที่สุดเทียบกับ ${b.label} คือ ${sh.name.trim()} ` +
+              `${sh.shift > 0 ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(sh.shift).toFixed(2)} จุด`;
+      }
+    }
+  }
+  if (s5) S.push({ no: S.length + 1, title: 'จุดเข้า-ออกและการกระจายตัว', body: s5.trim() });
+
+  // ---------- 6. การเดินทาง ----------
+  const ppc = peoplePerCar(a);
+  if (ppc) {
+    let s6 = `อัตราส่วนผู้ใช้บริการต่อรถยนต์ที่เข้าศูนย์อยู่ที่ ${ppc.toFixed(2)} คนต่อคัน`;
+    if (b) {
+      const bp = peoplePerCar(b);
+      const d = bp ? delta(ppc, bp) : null;
+      if (d != null) {
+        s6 += ` เทียบกับ ${b.label} ที่ ${bp.toFixed(2)} คนต่อคัน ${d > 0 ? 'เพิ่มขึ้น' : 'ลดลง'}ร้อยละ ${Math.abs(d).toFixed(1)} ` +
+              `${d > 0 ? 'บ่งชี้ว่าสัดส่วนผู้เดินทางด้วยขนส่งสาธารณะหรือมากับรถคันเดียวกันเพิ่มขึ้น'
+                        : 'บ่งชี้ว่าสัดส่วนผู้เดินทางด้วยรถยนต์ส่วนตัวเพิ่มขึ้น'}`;
+      }
+    }
+    s6 += ` ในช่วงเดียวกันมีรถจักรยานยนต์เข้า ${fmt(t.mc)} คัน และรถเดลิเวอรี่ ${fmt(t.dlv)} คัน`;
+    S.push({ no: S.length + 1, title: 'รูปแบบการเดินทาง', body: s6 });
+  }
+
+  return S;
+}
+
+/** ข้อเสนอแนะเชิงปฏิบัติการ — สรุปจากบทวิเคราะห์ให้นำไปใช้ได้ทันที */
+function buildRecommendations(a, b) {
+  const R = [];
+  const ag = a.agg, op = ag.occPeak, pk = ag.peaks;
+  if (!op.empty) {
+    R.push(`จัดกำลังพลและเปิดระบบสนับสนุนเต็มอัตราในช่วง ${op.label} น. ` +
+           `ซึ่งเป็นช่วงที่มีผู้อยู่ภายในศูนย์สูงสุดประมาณ ${fmt(Math.round(op.value))} คน`);
+  }
+  const ph = peakHourByDow(a).filter(Boolean);
+  const wknd = ph.filter(x => x.dow === 0 || x.dow === 6);
+  const wday = ph.filter(x => x.dow >= 1 && x.dow <= 5);
+  if (wknd.length && wday.length) {
+    const avgH = arr => arr.reduce((s, x) => s + x.hour, 0) / arr.length;
+    const hw = Math.round(avgH(wknd)), hd = Math.round(avgH(wday));
+    if (Math.abs(hw - hd) >= 1) {
+      R.push(`แยกตารางเวรวันหยุดสุดสัปดาห์ออกจากวันทำงาน โดยเลื่อนกำลังพลหลัก ` +
+             `ไปที่ช่วง ${hLabel(hw)} น. ในวันเสาร์-อาทิตย์ และ ${hLabel(hd)} น. ในวันจันทร์ถึงศุกร์`);
+    }
+  }
+  const gs = ag.gates.slice().sort((x, y) => y.in - x.in);
+  const grand = ag.gates.reduce((s, g) => s + g.in, 0);
+  if (gs.length >= 3 && grand) {
+    const share3 = gs.slice(0, 3).reduce((s, g) => s + g.in, 0) / grand * 100;
+    if (share3 >= 35) {
+      R.push(`ทบทวนการจัดวางจุดบริการและเส้นทางสัญจรบริเวณ ${gs[0].name.trim()} ` +
+             `เนื่องจากสามประตูหลักรองรับผู้ใช้บริการรวมกันถึงร้อยละ ${share3.toFixed(1)}`);
+    }
+  }
+  const io = ag.total.cIn - ag.total.cOut;
+  const ioPct = ag.total.cIn ? Math.abs(io) / ag.total.cIn * 100 : 0;
+  if (ioPct > 5) {
+    R.push(`ตรวจสอบความถูกต้องของการบันทึกยอดเข้า-ออก เนื่องจากส่วนต่างอยู่ที่ร้อยละ ${ioPct.toFixed(1)} ` +
+           `ซึ่งสูงกว่าระดับที่อธิบายได้ด้วยการตัดยอดคนละช่วงเวลา`);
+  }
+  if (b) {
+    const d = delta(ag.avg.cIn, b.agg.avg.cIn);
+    if (d != null && d < -3) {
+      R.push(`ติดตามสาเหตุที่ผู้ใช้บริการเฉลี่ยต่อวันลดลงร้อยละ ${Math.abs(d).toFixed(1)} เทียบกับ ${b.label} ` +
+             `โดยพิจารณาร่วมกับปัจจัยฤดูกาล กิจกรรมส่งเสริมการขาย และสภาพการแข่งขันในพื้นที่`);
+    }
+  }
+  /* ข้อเสนอแนะพื้นฐาน — ใส่ต่อท้ายเพื่อไม่ให้รายงานบางเกินไปในงวดที่ไม่มีประเด็นผิดปกติ
+     เงื่อนไขด้านบนเป็นประเด็นเฉพาะงวด จึงให้ความสำคัญมาก่อนและตัดให้เหลือ 5 ข้อตอนแสดงผล */
+  if (!pk.vIn.empty && !pk.vOut.empty) {
+    R.push(`บริหารช่องทางจราจรให้สอดคล้องกับทิศทางการไหล โดยเพิ่มช่องขาเข้าในช่วง ${pk.vIn.label} น. ` +
+           `และเพิ่มช่องขาออกพร้อมจุดชำระเงินค่าบริการในช่วง ${pk.vOut.label} น.`);
+  }
+  const ppc = peoplePerCar(a);
+  if (ppc > 0) {
+    R.push(`ใช้อัตราผู้ใช้บริการต่อรถยนต์ ${ppc.toFixed(2)} คนต่อคัน เป็นฐานประเมินความต้องการที่จอดรถ ` +
+           `และวางแผนร่วมกับการส่งเสริมการเดินทางด้วยระบบขนส่งสาธารณะ`);
+  }
+  if (ag.emptyDayCount > 0) {
+    R.push(`ติดตามการบันทึกข้อมูลให้ครบถ้วน เนื่องจากงวดนี้มีวันที่ยังไม่มีข้อมูล ${ag.emptyDayCount} วัน ` +
+           `ซึ่งทำให้ยอดรวมของงวดต่ำกว่าความเป็นจริง`);
+  } else {
+    R.push(`คงรูปแบบการบันทึกข้อมูลรายวันไว้ตามเดิม และจัดเก็บรายงานงวดนี้เป็นฐานเปรียบเทียบของงวดถัดไป`);
+  }
+  if (!R.length) R.push('ข้อมูลในช่วงนี้ยังไม่พบประเด็นที่ต้องดำเนินการเร่งด่วน');
+  return R;
+}
+
 /** สร้างข้อสังเกตจากตัวเลขจริง — ไม่ใช้ AI ภายนอก ทำงานออฟไลน์ได้เสมอ */
 function buildInsights(a, b) {
   const out = [];
@@ -3370,11 +3923,11 @@ function renderReport() {
 
   $('#export-cards').innerHTML = `
     <div class="card c-amber">
-      <div class="card-head"><div><h3 class="card-title">สไลด์นำเสนอ</h3><p class="card-note">PowerPoint 5 สไลด์ พร้อมกราฟ</p></div></div>
+      <div class="card-head"><div><h3 class="card-title">สไลด์นำเสนอ</h3><p class="card-note">PowerPoint 8 สไลด์ พร้อมบทวิเคราะห์</p></div></div>
       <button class="btn primary" id="btn-pptx" style="width:100%"><svg><use href="#i-slides"/></svg>ดาวน์โหลด .pptx</button>
     </div>
     <div class="card c-rose">
-      <div class="card-head"><div><h3 class="card-title">รายงานอินโฟกราฟิก</h3><p class="card-note">ไฟล์ PDF หน้าเดียว แนวตั้ง</p></div></div>
+      <div class="card-head"><div><h3 class="card-title">รายงานอินโฟกราฟิก</h3><p class="card-note">เอกสาร A4 แนวนอน 2 หน้า พร้อมบทวิเคราะห์</p></div></div>
       <button class="btn" id="btn-pdf" style="width:100%"><svg><use href="#i-report"/></svg>ดาวน์โหลด .pdf</button>
     </div>
     <div class="card c-violet">
@@ -3382,65 +3935,266 @@ function renderReport() {
       <button class="btn" id="btn-png" style="width:100%"><svg><use href="#i-image"/></svg>ดาวน์โหลด .png</button>
     </div>`;
 
-  const t = a.agg.total, av = a.agg.avg, pk = a.agg.peaks;
+  /* ===================================================================
+     รายงานฉบับทางการ — เอกสาร A4 แนวนอน 2 หน้า
+     -------------------------------------------------------------------
+     ทำไมต้องแนวนอน: เนื้อหาหลักของรายงานนี้คือตารางเปรียบเทียบ 5 คอลัมน์
+     กราฟแนวโน้มรายวัน 31 จุด และตารางภาคผนวก 2 ชุด ซึ่งบนหน้าแนวตั้ง
+     ต้องบีบความกว้างจนตัวเลขอ่านยาก ส่วนแนวนอนวางได้ 3 คอลัมน์สบาย ๆ
+
+     หน้า 1 — หัวกระดาษ / บทสรุปผู้บริหาร / ตัวเลขสำคัญ / ตารางสถิติ / ภาคผนวกช่วงเวลา
+     หน้า 2 — บทวิเคราะห์ / ข้อเสนอแนะ / ภาคผนวกรายประตูและรายชั้น / ท้ายกระดาษ
+
+     ความกว้างคงที่ 1123px = A4 แนวนอนที่ 96dpi (297mm) เพื่อให้สัดส่วน
+     ที่เห็นบนจอตรงกับไฟล์ PDF ที่ได้ ไม่ต้องเดาตอนจัดหน้า
+     ใช้สีตรง ๆ (rgba/hex) ไม่ใช้ color-mix() เพราะ html2canvas แปลงไม่ได้
+     =================================================================== */
+  const t = a.agg.total, av = a.agg.avg, pk = a.agg.peaks, op = a.agg.occPeak;
+  const analysis = buildReportAnalysis(a, b);
+  const recs = buildRecommendations(a, b);
+  const issues = (typeof integrityIssues === 'function' ? integrityIssues(a) : []);
+  const now = new Date();
+  const docNo = `SBK-TR-${a.year || now.getFullYear() + 543}${String(a.month || 0).padStart(2, '0')}`;
+
   const dRow = (m) => {
     const d = b ? delta(av[m.key], b.agg.avg[m.key]) : null;
-    const cls = d == null ? 'flat' : d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat';
+    const col = d == null ? 'var(--flat)' : d > 0.05 ? 'var(--up)' : d < -0.05 ? 'var(--down)' : 'var(--flat)';
     return `<tr>
       <td style="text-align:left">${m.label}</td>
       <td class="num">${fmt(t[m.key])}</td>
       <td class="num">${fmt(Math.round(av[m.key]))}</td>
-      <td><span class="delta ${cls}">${d == null ? '—' : pct(d)}</span></td></tr>`;
+      <td class="num">${b ? fmt(b.agg.total[m.key]) : '—'}</td>
+      <td class="num">${b ? fmt(Math.round(b.agg.avg[m.key])) : '—'}</td>
+      <td class="num" style="color:${col};font-weight:700">${d == null ? '—' : pct(d)}</td></tr>`;
   };
-  const topGates = a.agg.gates.slice().sort((x, y) => y.in - x.in).slice(0, 5);
+
+  const topGates = a.agg.gates.slice().sort((x, y) => y.in - x.in).slice(0, 8);
+  const gGrand = a.agg.gates.reduce((s2, g) => s2 + g.in, 0) || 1;
+  const floors = (a.agg.floors || []).slice().sort((x, y) => y.in - x.in);
+
+  /* หัวข้อย่อยของแต่ละบล็อก — รูปแบบเดียวกันทั้งเอกสารเพื่อให้อ่านเป็นลำดับชั้น */
+  const sec = (title, note) => `<div style="display:flex;align-items:baseline;gap:9px;margin:0 0 9px">
+      <span style="width:4px;height:15px;border-radius:99px;background:linear-gradient(180deg,var(--accent),var(--mint));align-self:center"></span>
+      <span style="font-size:13px;font-weight:700;letter-spacing:-.01em">${title}</span>
+      ${note ? `<span style="font-size:9.5px;color:var(--text-faint)">${note}</span>` : ''}
+      <span style="flex:1;height:1px;background:var(--line);align-self:center"></span>
+    </div>`;
+
+  /* หัวกระดาษของทุกหน้า — เลขหน้าเปลี่ยน ที่เหลือเหมือนกัน เพื่อให้แต่ละแผ่น
+     ยืนอยู่ได้ด้วยตัวเองเมื่อถูกพิมพ์แยกหรือส่งต่อทีละหน้า */
+  const runHead = (pageNo) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;
+         border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:13px;
+         font-size:9.5px;color:var(--text-faint)">
+      <span>ศูนย์การค้าซีคอน บางแค · รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ · ${a.label}</span>
+      <span>${docNo} · หน้า ${pageNo}/2</span>
+    </div>`;
+
+  const PAGE = 'width:1123px;min-height:794px;box-sizing:border-box;padding:26px 30px;' +
+               'background:var(--surface);border:1px solid var(--line);border-radius:10px;' +
+               'font-size:12px;line-height:1.6;display:flex;flex-direction:column';
 
   $('#report-canvas').innerHTML = `
-    <div id="report-sheet" style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px;max-width:820px;margin:0 auto">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:18px">
-        <div>
-          <div style="font-size:19px;font-weight:700;letter-spacing:-.02em">รายงานยอดลูกค้าและยานพาหนะ</div>
-          <div style="font-size:12.5px;color:var(--text-dim);margin-top:3px">ศูนย์การค้าซีคอน บางแค · ${a.label}${b ? ` เทียบ ${b.label}` : ''}</div>
+    <div id="report-sheet" style="display:flex;flex-direction:column;gap:18px;width:1123px;margin:0 auto">
+
+    <!-- ================= หน้า 1 ================= -->
+    <section class="rp-page" style="${PAGE}">
+
+      <!-- ---------- หัวกระดาษหลัก ---------- -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
+           border-bottom:3px solid var(--accent);padding-bottom:14px">
+        <div style="display:flex;gap:13px;align-items:flex-start">
+          <div style="width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center;
+               background:linear-gradient(140deg,var(--accent),var(--mint))">
+            <svg viewBox="0 0 24 24" style="width:23px;height:23px" fill="none" stroke="#fff"
+                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--text-dim);letter-spacing:.06em;font-weight:600">
+              ศูนย์การค้าซีคอน บางแค · ฝ่ายปฏิบัติการ</div>
+            <div style="font-size:21px;font-weight:700;letter-spacing:-.02em;margin-top:2px">
+              รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ</div>
+            <div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:3px">
+              ประจำงวด ${a.label}${b ? ` · เปรียบเทียบกับ ${b.label}` : ''}</div>
+          </div>
         </div>
-        <div style="text-align:right;font-size:11px;color:var(--text-faint);line-height:1.6">
-          <div>${a.agg.days} วัน</div><div>ออกรายงาน ${new Date().toLocaleDateString('th-TH')}</div>
-        </div>
+        <table style="font-size:10px;color:var(--text-dim);line-height:1.85;text-align:right;border-collapse:collapse">
+          <tr><td style="padding:0 0 0 12px">เลขที่เอกสาร</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${docNo}</td></tr>
+          <tr><td style="padding:0 0 0 12px">วันที่ออกรายงาน</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${now.toLocaleDateString('th-TH')}</td></tr>
+          <tr><td style="padding:0 0 0 12px">จำนวนวันที่มีข้อมูล</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${a.agg.days} วัน</td></tr>
+          <tr><td style="padding:0 0 0 12px">ประเภทการเปรียบเทียบ</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${b ? compareKind(a, b) : '—'}</td></tr>
+        </table>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
-        ${['cIn', 'vIn24', 'mc', 'dlv'].map(k => {
+
+      <!-- ---------- บทสรุปผู้บริหาร ---------- -->
+      <div style="margin-top:14px;padding:13px 16px;border-radius:10px;
+           background:var(--accent-a14);border-left:3px solid var(--accent)">
+        <div style="font-size:10.5px;font-weight:700;color:var(--accent);letter-spacing:.05em;margin-bottom:4px">บทสรุปผู้บริหาร</div>
+        <div style="font-size:12.5px;line-height:1.72">${analysis[0] ? analysis[0].body : '—'}</div>
+      </div>
+
+      <!-- ---------- ตัวเลขสำคัญ 6 ช่อง (แนวนอนวางได้ครบทุกตัววัดหลัก) ---------- -->
+      <div style="margin-top:15px">${sec('ตัวเลขสำคัญประจำงวด', b ? `ร้อยละเทียบกับ ${b.label} ด้วยค่าเฉลี่ยต่อวัน` : '')}</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:9px">
+        ${['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv'].map(k => {
           const m = METRIC_BY_KEY[k];
           const d = b ? delta(av[k], b.agg.avg[k]) : null;
           const col = d == null ? 'var(--flat)' : d > 0 ? 'var(--up)' : 'var(--down)';
-          return `<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px">
-            <div style="font-size:10.5px;color:var(--text-dim);font-weight:600;margin-bottom:5px">${m.label}</div>
-            <div class="num" style="font-size:19px;font-weight:700;letter-spacing:-.02em">${fmt(t[k])}</div>
+          return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+               background:var(--m-${m.color}-s);border-top:3px solid var(--m-${m.color}-c)">
+            <div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-bottom:4px">${m.label}</div>
+            <div class="num" style="font-size:19px;font-weight:700;color:var(--m-${m.color}-i);letter-spacing:-.02em">${fmt(t[k])}</div>
+            <div style="font-size:9.5px;color:var(--text-faint);margin-top:2px">เฉลี่ย ${fmt(Math.round(av[k]))} ${m.unit}/วัน</div>
             <div style="font-size:10.5px;color:${col};font-weight:700;margin-top:3px">${d == null ? '—' : pct(d)}</div>
           </div>`;
         }).join('')}
       </div>
-      <table class="tbl" style="margin-bottom:18px"><thead><tr>
-        <th style="text-align:left">ประเภท</th><th>ยอดรวม</th><th>เฉลี่ย/วัน</th><th>เทียบ${b ? ' ' + b.label : ''}</th>
-      </tr></thead><tbody>${METRICS.map(dRow).join('')}</tbody></table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- ---------- ตารางสถิติ + ภาคผนวกช่วงเวลา วางคู่กันตามแนวกว้าง ---------- -->
+      <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:22px;margin-top:17px">
         <div>
-          <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">ชั่วโมงเร่งด่วน</div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.9">
-            <div>ลูกค้าเข้า · <b style="color:var(--text)">${pk.cIn.label} น.</b> (${fmt(Math.round(pk.cIn.value))} คน/ชม.)</div>
-            <div>ลูกค้าออก · <b style="color:var(--text)">${pk.cOut.label} น.</b> (${fmt(Math.round(pk.cOut.value))} คน/ชม.)</div>
-            <div>รถยนต์เข้า · <b style="color:var(--text)">${pk.vIn.label} น.</b> (${fmt(Math.round(pk.vIn.value))} คัน/ชม.)</div>
-            <div>รถยนต์ออก · <b style="color:var(--text)">${pk.vOut.label} น.</b> (${fmt(Math.round(pk.vOut.value))} คัน/ชม.)</div>
+          ${sec('ตารางสรุปสถิติเปรียบเทียบ')}
+          <table class="tbl" style="font-size:11px"><thead><tr>
+            <th style="text-align:left">ประเภท</th>
+            <th>ยอดรวม</th><th>เฉลี่ย/วัน</th>
+            <th>ยอดรวม ${b ? b.label : '—'}</th><th>เฉลี่ย/วัน ${b ? b.label : '—'}</th>
+            <th>เปลี่ยนแปลง</th>
+          </tr></thead><tbody>${METRICS.map(dRow).join('')}</tbody></table>
+          <div style="font-size:9.5px;color:var(--text-faint);margin-top:6px;line-height:1.55">
+            หมายเหตุ: ร้อยละการเปลี่ยนแปลงคำนวณจาก “ค่าเฉลี่ยต่อวัน” ไม่ใช่ยอดรวม เพราะสองงวดอาจมีจำนวนวันไม่เท่ากัน
+            · ค่าเฉลี่ยต่อวันหารด้วยจำนวนวันที่มีข้อมูลจริง (${a.agg.days} วัน) ไม่ใช่จำนวนวันตามปฏิทิน${
+              a.agg.emptyDayCount ? ` · ไม่นับรวมวันที่ยังไม่บันทึกข้อมูล ${a.agg.emptyDayCount} วัน` : ''}
           </div>
         </div>
         <div>
-          <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">5 ประตูที่คนเข้ามากสุด</div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.9">
-            ${topGates.map((g, i) => `<div>${i + 1}. ${g.name.trim()} · <b style="color:var(--text)">${fmt(g.in)}</b></div>`).join('')}
+          ${sec('ช่วงเวลาหนาแน่น', 'ค่าเฉลี่ยต่อวัน')}
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            ${[['ผู้เข้าศูนย์สูงสุด', pk.cIn, 'คน/ชม.', 'cyan'],
+               ['ผู้ออกจากศูนย์สูงสุด', pk.cOut, 'คน/ชม.', 'sky'],
+               ['ผู้อยู่ภายในศูนย์สูงสุด', op, 'คน', 'amber'],
+               ['รถยนต์เข้าสูงสุด', pk.vIn, 'คัน/ชม.', 'mint'],
+               ['รถยนต์ออกสูงสุด', pk.vOut, 'คัน/ชม.', 'violet']].map(([l, v, u, c]) => `
+              <tr style="border-bottom:1px solid var(--line-soft)">
+                <td style="padding:6px 0"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;
+                     background:var(--m-${c}-c);margin-right:7px"></span><span style="color:var(--text-dim)">${l}</span></td>
+                <td style="padding:6px 0;text-align:right;font-weight:700;white-space:nowrap">${v.empty ? '—' : v.label + ' น.'}</td>
+                <td class="num" style="padding:6px 0;text-align:right;color:var(--text-faint);white-space:nowrap">${v.empty ? '' : fmt(Math.round(v.value)) + ' ' + u}</td>
+              </tr>`).join('')}
+          </table>
+          <div style="margin-top:11px;padding:9px 11px;border-radius:8px;background:var(--surface-2);
+               border:1px solid var(--line);font-size:10px;color:var(--text-dim);line-height:1.6">
+            “ผู้อยู่ภายในศูนย์” เป็นค่าประมาณจากยอดเข้าสะสมหักยอดออกสะสม
+            ใช้ชี้ชั่วโมงที่ภาระงานจริงสูงสุด ซึ่งมักไม่ตรงกับชั่วโมงที่มีผู้เข้ามากที่สุด
+          </div>
+          ${a.agg.wk.holiday.n && a.agg.wk.weekday.n ? `
+          <div style="margin-top:14px">${sec('วันธรรมดาเทียบวันหยุด')}</div>
+          <table style="width:100%;font-size:10.5px;border-collapse:collapse">
+            <tr style="border-bottom:1px solid var(--line-soft)">
+              <td style="padding:6px 0;color:var(--text-dim)">วันธรรมดา (${a.agg.wk.weekday.n} วัน)</td>
+              <td class="num" style="padding:6px 0;text-align:right;font-weight:700">${fmt(Math.round(a.agg.wk.weekday.avg.cIn))} คน/วัน</td></tr>
+            <tr style="border-bottom:1px solid var(--line-soft)">
+              <td style="padding:6px 0;color:var(--text-dim)">วันหยุด (${a.agg.wk.holiday.n} วัน)</td>
+              <td class="num" style="padding:6px 0;text-align:right;font-weight:700">${fmt(Math.round(a.agg.wk.holiday.avg.cIn))} คน/วัน</td></tr>
+          </table>` : ''}
+          ${issues.length ? `<div style="margin-top:10px;padding:9px 11px;border-radius:8px;
+               background:var(--amber-a07);border-left:3px solid var(--m-amber-c);font-size:10px;line-height:1.6">
+            <b>ข้อสังเกตด้านคุณภาพข้อมูล</b><br>${issues.slice(0, 3).map(x => '• ' + x).join('<br>')}
+          </div>` : ''}
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+      ${runHead(1).replace('border-bottom', 'border-top').replace('padding-bottom:8px;margin-bottom:13px', 'padding-top:8px;margin-top:13px')}
+    </section>
+
+    <!-- ================= หน้า 2 ================= -->
+    <section class="rp-page" style="${PAGE}">
+      ${runHead(2)}
+
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:24px">
+        <!-- ---------- คอลัมน์ซ้าย: บทวิเคราะห์ ---------- -->
+        <div>
+          ${sec('บทวิเคราะห์', 'สรุปจากตัวเลขในงวดรายงาน')}
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${analysis.slice(1).map((x, i) => `
+              <div style="display:flex;gap:10px">
+                <div style="flex:0 0 21px;height:21px;border-radius:7px;display:grid;place-items:center;
+                     background:var(--accent-a14);color:var(--accent);font-size:10.5px;font-weight:700">${i + 1}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:11.8px;font-weight:700;margin-bottom:2px">${x.title}</div>
+                  <div style="font-size:11.3px;color:var(--text-dim);line-height:1.68">${x.body}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <div style="margin-top:16px">${sec('ข้อเสนอแนะเชิงปฏิบัติการ')}</div>
+          <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface-2)">
+            ${recs.map((r, i) => `<div style="display:flex;gap:9px;${i ? 'margin-top:8px' : ''}">
+                <span style="color:var(--mint);font-weight:700;flex:0 0 auto">${i + 1}.</span>
+                <span style="font-size:11.3px;line-height:1.66">${r}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- ---------- คอลัมน์ขวา: ภาคผนวกรายประตูและรายชั้น ---------- -->
+        <div>
+          ${sec('จุดประตูที่มีผู้ใช้สูงสุด', `จากทั้งหมด ${a.agg.gates.length} จุด`)}
+          <table style="width:100%;font-size:10.5px;border-collapse:collapse">
+            ${topGates.map((g, i) => `
+              <tr style="border-bottom:1px solid var(--line-soft)">
+                <td style="padding:5px 0;color:var(--text-faint);width:16px">${i + 1}</td>
+                <td style="padding:5px 0;word-break:break-word">${g.name.trim()}</td>
+                <td class="num" style="padding:5px 0;text-align:right;font-weight:600;white-space:nowrap">${fmt(g.in)}</td>
+                <td class="num" style="padding:5px 0;text-align:right;color:var(--text-faint);width:44px">${(g.in / gGrand * 100).toFixed(1)}%</td>
+              </tr>`).join('')}
+          </table>
+          ${floors.length ? `<div style="margin-top:16px">${sec('สัดส่วนตามชั้นอาคาร')}</div>
+            <!-- แถวละชั้น แทนแถบเรียงแนวนอน เพราะป้ายกำกับของชั้นที่สัดส่วนน้อย
+                 จะถูกตัดหายเมื่อความกว้างคอลัมน์จำกัด -->
+            ${floors.map((f, i) => `<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
+                <div style="width:48px;font-size:10px;color:var(--text-dim);flex:none">
+                  ${f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor}</div>
+                <div style="flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden">
+                  <div style="width:${Math.max(2, f.share)}%;height:100%;border-radius:99px;
+                       background:var(--m-${['cyan','mint','amber','violet','rose','sky'][i % 6]}-c)"></div></div>
+                <div style="width:62px;text-align:right;font-size:10px;font-variant-numeric:tabular-nums;flex:none">
+                  ${f.share.toFixed(1)}% <span style="color:var(--text-faint)">· ${f.gates}</span></div>
+              </div>`).join('')}
+            <div style="font-size:9.5px;color:var(--text-faint);margin-top:4px">ตัวเลขหลังจุดคือจำนวนประตูของชั้นนั้น</div>` : ''}
+
+          <!-- ใช้ภาพจากกราฟบนหน้าจอโดยตรง จึงเป็นข้อมูลชุดเดียวกันเสมอ
+               ไม่ต้องวาดกราฟซ้ำด้วยโค้ดคนละชุดซึ่งเสี่ยงให้ตัวเลขไม่ตรงกัน
+               ใส่ src ทีหลัง เพราะตอน renderReport ทำงาน กราฟเพิ่งถูกสร้างในเฟรมเดียวกัน
+               ยังไม่ผ่าน layout ขนาด canvas จึงเป็น 0 และได้ภาพเปล่า -->
+          <div id="rp-trend-box" style="margin-top:16px;display:none">
+            ${sec('แนวโน้มผู้ใช้บริการรายวัน')}
+            <img id="rp-trend" alt="กราฟแนวโน้มผู้ใช้บริการรายวัน"
+                 style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)">
           </div>
         </div>
       </div>
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:10px;color:var(--text-faint)">
-        ค่าเฉลี่ยต่อวันคำนวณจากจำนวนวันที่มีข้อมูลจริง (${a.agg.days} วัน) · SBK Traffic Intelligence v${APP_VERSION}
+
+      <div style="flex:1"></div>
+      <!-- ---------- ท้ายกระดาษ ---------- -->
+      <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--line);
+           display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:var(--text-faint);line-height:1.6">
+        <div style="max-width:62%">
+          รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติจากข้อมูลบันทึกยอดลูกค้าและยานพาหนะรายวัน
+          ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง มิได้ผ่านการปรับค่าใด ๆ<br>
+          ผู้จัดทำ ฝ่ายปฏิบัติการ · ผู้ตรวจทาน ____________________ · วันที่ ____ / ____ / ________
+        </div>
+        <div style="text-align:right">
+          SBK Traffic Intelligence v${APP_VERSION}<br>
+          ${docNo} · หน้า 2/2
+        </div>
       </div>
+    </section>
     </div>`;
+
+  /* ย่อแผ่นรายงานให้พอดีความกว้างจอ (ดูอย่างเดียว ไม่กระทบไฟล์ที่ส่งออก
+     เพราะ html2canvas อ่านจากขนาดจริงของ element ไม่ใช่ค่าที่ถูก transform) */
+  fitReportSheet();
+  refreshReportChart();
 
   $('#btn-pptx')?.addEventListener('click', exportPPTX);
   $('#btn-pdf')?.addEventListener('click', () => exportImage('pdf'));
@@ -3468,72 +4222,183 @@ async function exportPPTX() {
   if (typeof PptxGenJS === 'undefined') return toast('โหลดไลบรารี PowerPoint ไม่สำเร็จ — ตรวจการเชื่อมต่ออินเทอร์เน็ต', 'error');
   const btn = $('#btn-pptx'); btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   try {
-    const BG = '0B1120', CARD = '131C2E', CYAN = '22D3EE', MINT = '34D399', TXT = 'E6EDF7', DIM = '8A9AB5';
+    /* ชุดสีของสไลด์ตั้งค่าตายตัว ไม่ดึงจากธีมหน้าจอ
+       เพื่อให้ไฟล์ที่ส่งออกหน้าตาเหมือนกันเสมอ ไม่ขึ้นกับว่าผู้ใช้เปิดโหมดไหนอยู่ */
+    const BG = '0B1120', CARD = '161F33', LINE = '2A3850',
+          CYAN = '22D3EE', MINT = '34D399', AMBER = 'FBBF24', ROSE = 'F87171',
+          TXT = 'E6EDF7', DIM = '93A4BF', FAINT = '6B7C96';
+    const F = 'Tahoma';
+    const analysis = buildReportAnalysis(a, b);
+    const recs = buildRecommendations(a, b);
+    const now = new Date();
+    const docNo = `SBK-TR-${a.year || ''}${String(a.month || 0).padStart(2, '0')}`;
+
     const pptx = new PptxGenJS();
     pptx.layout = 'LAYOUT_16x9';
+    pptx.author = 'SBK Traffic Intelligence';
+    pptx.company = 'ศูนย์การค้าซีคอน บางแค';
+    pptx.title = `รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ ${a.label}`;
+
+    /* แม่แบบสไลด์เนื้อหา — แถบหัวเรื่องด้านบนและแถบท้ายสไลด์ */
     pptx.defineSlideMaster({
-      title: 'SBK', background: { color: BG },
-      objects: [{ rect: { x: 0, y: 5.08, w: '100%', h: 0.52, fill: { color: CARD } } },
-                { text: { text: 'SBK Traffic Intelligence', options: { x: 0.4, y: 5.12, w: 5, h: 0.42, fontSize: 10, color: DIM, fontFace: 'Tahoma' } } }],
+      title: 'BODY', background: { color: BG },
+      objects: [
+        { rect: { x: 0, y: 0, w: '100%', h: 0.055, fill: { color: CYAN } } },
+        { line: { x: 0.45, y: 5.06, w: 9.1, h: 0, line: { color: LINE, width: 1 } } },
+        { text: { text: 'ศูนย์การค้าซีคอน บางแค · รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ',
+                  options: { x: 0.45, y: 5.1, w: 6.2, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F } } },
+        { text: { text: docNo, options: { x: 6.7, y: 5.1, w: 2.85, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, align: 'right' } } },
+      ],
     });
 
-    // 1. ปก
-    let s = pptx.addSlide({ masterName: 'SBK' });
-    s.addShape(pptx.ShapeType.rect, { x: 0, y: 2.1, w: 0.14, h: 1.5, fill: { color: CYAN } });
-    s.addText('รายงานยอดลูกค้าและยานพาหนะ', { x: 0.5, y: 2.1, w: 9, h: 0.6, fontSize: 32, bold: true, color: TXT, fontFace: 'Tahoma' });
-    s.addText('ศูนย์การค้าซีคอน บางแค', { x: 0.5, y: 2.75, w: 9, h: 0.4, fontSize: 17, color: CYAN, fontFace: 'Tahoma' });
-    s.addText(`${a.label}${b ? `  เทียบกับ  ${b.label}` : ''}   ·   ${a.agg.days} วัน`, { x: 0.5, y: 3.2, w: 9, h: 0.4, fontSize: 13, color: DIM, fontFace: 'Tahoma' });
-    s.addText(`ออกรายงาน ${new Date().toLocaleDateString('th-TH')}`, { x: 0.5, y: 3.6, w: 9, h: 0.3, fontSize: 11, color: DIM, fontFace: 'Tahoma' });
+    /** หัวเรื่องมาตรฐานของแต่ละสไลด์ */
+    const head = (s2, title, sub) => {
+      s2.addText(title, { x: 0.45, y: 0.3, w: 9.1, h: 0.42, fontSize: 20, bold: true, color: TXT, fontFace: F });
+      if (sub) s2.addText(sub, { x: 0.45, y: 0.72, w: 9.1, h: 0.3, fontSize: 10.5, color: CYAN, fontFace: F });
+      s2.addShape(pptx.ShapeType.rect, { x: 0.45, y: 1.03, w: 0.75, h: 0.035, fill: { color: CYAN } });
+    };
 
-    // 2. ตัวเลขหลัก
-    s = pptx.addSlide({ masterName: 'SBK' });
-    s.addText('สรุปภาพรวม', { x: 0.45, y: 0.32, w: 9, h: 0.45, fontSize: 21, bold: true, color: TXT, fontFace: 'Tahoma' });
-    ['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv'].forEach((k, i) => {
+    // ---------- 1. ปก ----------
+    let s1 = pptx.addSlide();
+    s1.background = { color: BG };
+    s1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.09, fill: { color: CYAN } });
+    s1.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.72, w: 0.14, h: 1.75, fill: { color: MINT } });
+    s1.addText('ศูนย์การค้าซีคอน บางแค · ฝ่ายปฏิบัติการ',
+      { x: 0.95, y: 1.68, w: 8.4, h: 0.3, fontSize: 11, color: DIM, fontFace: F, charSpacing: 1 });
+    s1.addText('รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ',
+      { x: 0.95, y: 2.0, w: 8.4, h: 0.62, fontSize: 30, bold: true, color: TXT, fontFace: F });
+    s1.addText(`ประจำงวด ${a.label}${b ? `   เปรียบเทียบกับ ${b.label}` : ''}`,
+      { x: 0.95, y: 2.66, w: 8.4, h: 0.4, fontSize: 16, color: CYAN, fontFace: F });
+    s1.addText(`${b ? compareKind(a, b) + '   ·   ' : ''}ข้อมูล ${a.agg.days} วัน`,
+      { x: 0.95, y: 3.06, w: 8.4, h: 0.3, fontSize: 11.5, color: DIM, fontFace: F });
+    s1.addText(`เลขที่เอกสาร ${docNo}\nวันที่ออกรายงาน ${now.toLocaleDateString('th-TH')}`,
+      { x: 0.95, y: 3.95, w: 8.4, h: 0.6, fontSize: 10, color: FAINT, fontFace: F, lineSpacingMultiple: 1.3 });
+
+    // ---------- 2. บทสรุปผู้บริหาร ----------
+    let s2 = pptx.addSlide({ masterName: 'BODY' });
+    head(s2, 'บทสรุปผู้บริหาร', `${a.label}${b ? ` เทียบกับ ${b.label}` : ''}`);
+    s2.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.25, w: 9.1, h: 1.3, fill: { color: CARD }, line: { color: CYAN, width: 1 }, rectRadius: 0.06 });
+    s2.addText(analysis[0] ? analysis[0].body : '—',
+      { x: 0.68, y: 1.4, w: 8.65, h: 1.0, fontSize: 11.5, color: TXT, fontFace: F, valign: 'top', lineSpacingMultiple: 1.25 });
+    // แถวตัวเลขสำคัญ
+    ['cIn', 'vIn24', 'mc', 'dlv'].forEach((k, i) => {
       const m = METRIC_BY_KEY[k];
       const d = b ? delta(a.agg.avg[k], b.agg.avg[k]) : null;
-      const x = 0.45 + (i % 3) * 3.07, y = 1.05 + Math.floor(i / 3) * 1.75;
-      s.addShape(pptx.ShapeType.roundRect, { x, y, w: 2.85, h: 1.5, fill: { color: CARD }, line: { color: '273449', width: 1 }, rectRadius: 0.08 });
-      s.addText(m.label, { x: x + 0.18, y: y + 0.14, w: 2.5, h: 0.28, fontSize: 11, color: DIM, fontFace: 'Tahoma' });
-      s.addText(fmt(a.agg.total[k]), { x: x + 0.18, y: y + 0.44, w: 2.5, h: 0.48, fontSize: 24, bold: true, color: TXT, fontFace: 'Tahoma' });
-      s.addText(`${d == null ? '—' : pct(d)}   เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))}/วัน`,
-        { x: x + 0.18, y: y + 0.98, w: 2.5, h: 0.3, fontSize: 10, bold: true, color: d == null ? DIM : (d > 0 ? MINT : 'F87171'), fontFace: 'Tahoma' });
+      const x = 0.45 + i * 2.31;
+      s2.addShape(pptx.ShapeType.roundRect, { x, y: 2.78, w: 2.12, h: 1.5, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.06 });
+      s2.addShape(pptx.ShapeType.rect, { x, y: 2.78, w: 2.12, h: 0.045, fill: { color: [CYAN, MINT, AMBER, ROSE][i] } });
+      s2.addText(m.label, { x: x + 0.15, y: 2.92, w: 1.85, h: 0.26, fontSize: 10, color: DIM, fontFace: F });
+      s2.addText(fmt(a.agg.total[k]), { x: x + 0.15, y: 3.18, w: 1.85, h: 0.45, fontSize: 21, bold: true, color: [CYAN, MINT, AMBER, ROSE][i], fontFace: F });
+      s2.addText(`เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))} ${m.unit}/วัน`, { x: x + 0.15, y: 3.62, w: 1.85, h: 0.24, fontSize: 8.5, color: FAINT, fontFace: F });
+      s2.addText(d == null ? '—' : pct(d), { x: x + 0.15, y: 3.87, w: 1.85, h: 0.28, fontSize: 11, bold: true, color: d == null ? DIM : (d > 0 ? MINT : ROSE), fontFace: F });
     });
+    s2.addText(`ค่าเฉลี่ยต่อวันคำนวณจากจำนวนวันที่มีข้อมูลจริง ${a.agg.days} วัน ไม่ใช่จำนวนวันตามปฏิทิน`,
+      { x: 0.45, y: 4.45, w: 9.1, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
-    // 3. แนวโน้มรายวัน
-    s = pptx.addSlide({ masterName: 'SBK' });
-    s.addText('แนวโน้มรายวัน', { x: 0.45, y: 0.32, w: 9, h: 0.45, fontSize: 21, bold: true, color: TXT, fontFace: 'Tahoma' });
+    // ---------- 3. ตารางสถิติ ----------
+    let s3 = pptx.addSlide({ masterName: 'BODY' });
+    head(s3, 'ตารางสรุปสถิติเปรียบเทียบ', b ? `${a.label} เทียบ ${b.label}` : a.label);
+    const rows = [[
+      { text: 'ประเภท', options: { bold: true, color: DIM } },
+      { text: 'ยอดรวม', options: { bold: true, color: DIM, align: 'right' } },
+      { text: 'เฉลี่ย/วัน', options: { bold: true, color: DIM, align: 'right' } },
+      { text: b ? `เฉลี่ย/วัน ${b.label}` : 'ฐาน', options: { bold: true, color: DIM, align: 'right' } },
+      { text: 'เปลี่ยนแปลง', options: { bold: true, color: DIM, align: 'right' } },
+    ]];
+    METRICS.forEach(m => {
+      const d = b ? delta(a.agg.avg[m.key], b.agg.avg[m.key]) : null;
+      rows.push([
+        m.label,
+        { text: fmt(a.agg.total[m.key]), options: { align: 'right' } },
+        { text: fmt(Math.round(a.agg.avg[m.key])), options: { align: 'right' } },
+        { text: b ? fmt(Math.round(b.agg.avg[m.key])) : '—', options: { align: 'right' } },
+        { text: d == null ? '—' : pct(d), options: { align: 'right', bold: true, color: d == null ? DIM : (d > 0 ? MINT : ROSE) } },
+      ]);
+    });
+    s3.addTable(rows, { x: 0.45, y: 1.3, w: 9.1, fontSize: 11, color: TXT, fontFace: F,
+      fill: { color: CARD }, border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.34 });
+
+    // ---------- 4. แนวโน้มรายวัน ----------
+    let s4 = pptx.addSlide({ masterName: 'BODY' });
+    head(s4, 'แนวโน้มรายวัน', 'จำนวนผู้ใช้บริการเข้าศูนย์รายวัน');
     const trendImg = chartPNG('trend');
-    if (trendImg) s.addImage({ data: trendImg, x: 0.45, y: 0.95, w: 9.1, h: 3.9 });
-    else s.addText('(ไม่สามารถแนบกราฟได้)', { x: 0.45, y: 2.4, w: 9, h: 0.4, fontSize: 13, color: DIM, fontFace: 'Tahoma' });
+    if (trendImg) s4.addImage({ data: trendImg, x: 0.45, y: 1.3, w: 9.1, h: 3.5 });
+    else s4.addText('(ไม่สามารถแนบกราฟได้)', { x: 0.45, y: 2.6, w: 9.1, h: 0.4, fontSize: 12, color: DIM, fontFace: F });
 
-    // 4. ชั่วโมงเร่งด่วน
-    s = pptx.addSlide({ masterName: 'SBK' });
-    s.addText('ช่วงเวลาหนาแน่น', { x: 0.45, y: 0.32, w: 9, h: 0.45, fontSize: 21, bold: true, color: TXT, fontFace: 'Tahoma' });
-    const hrImg = chartPNG('hrCust');
-    if (hrImg) s.addImage({ data: hrImg, x: 0.45, y: 0.95, w: 5.6, h: 2.9 });
-    const pk = a.agg.peaks;
-    [['ลูกค้าเข้า', pk.cIn, 'คน/ชม.'], ['ลูกค้าออก', pk.cOut, 'คน/ชม.'],
-     ['รถยนต์เข้า', pk.vIn, 'คัน/ชม.'], ['รถยนต์ออก', pk.vOut, 'คัน/ชม.']].forEach(([t2, v, u], i) => {
-      const y = 1.0 + i * 0.95;
-      s.addShape(pptx.ShapeType.roundRect, { x: 6.25, y, w: 3.3, h: 0.8, fill: { color: CARD }, line: { color: '273449', width: 1 }, rectRadius: 0.06 });
-      s.addText(t2, { x: 6.42, y: y + 0.08, w: 3, h: 0.26, fontSize: 10, color: DIM, fontFace: 'Tahoma' });
-      s.addText(`${v.label} น.  ·  ${fmt(Math.round(v.value))} ${u}`, { x: 6.42, y: y + 0.34, w: 3, h: 0.34, fontSize: 13, bold: true, color: CYAN, fontFace: 'Tahoma' });
+    // ---------- 5. พฤติกรรมช่วงเวลา ----------
+    let s5 = pptx.addSlide({ masterName: 'BODY' });
+    head(s5, 'พฤติกรรมตามช่วงเวลา', 'ค่าเฉลี่ยต่อวัน');
+    const occImg = chartPNG('occ') || chartPNG('hrCust');
+    if (occImg) s5.addImage({ data: occImg, x: 0.45, y: 1.28, w: 5.75, h: 2.9 });
+    const pk = a.agg.peaks, op = a.agg.occPeak;
+    [['ผู้เข้าศูนย์สูงสุด', pk.cIn, 'คน/ชม.', CYAN],
+     ['ผู้อยู่ภายในสูงสุด', op, 'คน', AMBER],
+     ['รถยนต์เข้าสูงสุด', pk.vIn, 'คัน/ชม.', MINT],
+     ['รถยนต์ออกสูงสุด', pk.vOut, 'คัน/ชม.', ROSE]].forEach(([l, v, u, col], i) => {
+      const y = 1.28 + i * 0.74;
+      s5.addShape(pptx.ShapeType.roundRect, { x: 6.42, y, w: 3.13, h: 0.62, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
+      s5.addShape(pptx.ShapeType.rect, { x: 6.42, y, w: 0.05, h: 0.62, fill: { color: col } });
+      s5.addText(l, { x: 6.6, y: y + 0.05, w: 2.85, h: 0.24, fontSize: 9, color: DIM, fontFace: F });
+      s5.addText(v.empty ? '—' : `${v.label} น.   ${fmt(Math.round(v.value))} ${u}`,
+        { x: 6.6, y: y + 0.28, w: 2.85, h: 0.3, fontSize: 11.5, bold: true, color: col, fontFace: F });
+    });
+    const tsec = analysis.find(x => x.title === 'พฤติกรรมตามช่วงเวลา');
+    if (tsec) s5.addText(tsec.body, { x: 0.45, y: 4.3, w: 9.1, h: 0.66, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
+
+    // ---------- 6. จุดเข้า-ออก และชั้นอาคาร ----------
+    let s6 = pptx.addSlide({ masterName: 'BODY' });
+    head(s6, 'จุดเข้า-ออกและการกระจายตัว', `${a.agg.gates.length} จุดประตู`);
+    const gTop = a.agg.gates.slice().sort((x, y) => y.in - x.in).slice(0, 8);
+    const gGrand = a.agg.gates.reduce((s7, g) => s7 + g.in, 0) || 1;
+    s6.addTable([[
+      { text: 'จุดประตู', options: { bold: true, color: DIM } },
+      { text: 'ขาเข้า', options: { bold: true, color: DIM, align: 'right' } },
+      { text: 'สัดส่วน', options: { bold: true, color: DIM, align: 'right' } },
+    ], ...gTop.map(g => [g.name.trim(),
+      { text: fmt(g.in), options: { align: 'right' } },
+      { text: (g.in / gGrand * 100).toFixed(1) + '%', options: { align: 'right' } }])],
+      { x: 0.45, y: 1.3, w: 5.75, fontSize: 10, color: TXT, fontFace: F,
+        fill: { color: CARD }, border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.3 });
+    const fl = (a.agg.floors || []).slice().sort((x, y) => y.in - x.in);
+    if (fl.length) {
+      s6.addText('สัดส่วนตามชั้นอาคาร', { x: 6.42, y: 1.28, w: 3.13, h: 0.28, fontSize: 11, bold: true, color: TXT, fontFace: F });
+      fl.slice(0, 6).forEach((f, i) => {
+        const y = 1.62 + i * 0.47, col = [CYAN, MINT, AMBER, ROSE, '-A78BFA'.slice(1), '38BDF8'][i % 6];
+        s6.addText(f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor, { x: 6.42, y, w: 0.95, h: 0.26, fontSize: 10, color: DIM, fontFace: F });
+        s6.addShape(pptx.ShapeType.rect, { x: 7.35, y: y + 0.07, w: Math.max(0.05, 1.6 * (f.share / 100)), h: 0.14, fill: { color: col } });
+        s6.addText(f.share.toFixed(1) + '%', { x: 9.0, y, w: 0.55, h: 0.26, fontSize: 9.5, color: TXT, fontFace: F, align: 'right' });
+      });
+    }
+    const gsec = analysis.find(x => x.title === 'จุดเข้า-ออกและการกระจายตัว');
+    if (gsec) s6.addText(gsec.body, { x: 0.45, y: 4.28, w: 9.1, h: 0.7, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
+
+    // ---------- 7. บทวิเคราะห์ ----------
+    let s7 = pptx.addSlide({ masterName: 'BODY' });
+    head(s7, 'บทวิเคราะห์', 'สรุปจากข้อมูลในงวดรายงาน');
+    const body = analysis.slice(1, 5);
+    body.forEach((x, i) => {
+      const y = 1.28 + i * 0.93;
+      s7.addShape(pptx.ShapeType.roundRect, { x: 0.45, y, w: 0.3, h: 0.3, fill: { color: CYAN }, rectRadius: 0.05 });
+      s7.addText(String(i + 1), { x: 0.45, y, w: 0.3, h: 0.3, fontSize: 11, bold: true, color: BG, fontFace: F, align: 'center', valign: 'middle' });
+      s7.addText(x.title, { x: 0.88, y: y - 0.02, w: 8.65, h: 0.26, fontSize: 11.5, bold: true, color: TXT, fontFace: F });
+      s7.addText(x.body, { x: 0.88, y: y + 0.24, w: 8.65, h: 0.64, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.18 });
     });
 
-    // 5. ประตู + ข้อสังเกต
-    s = pptx.addSlide({ masterName: 'SBK' });
-    s.addText('ประตูที่หนาแน่นที่สุด', { x: 0.45, y: 0.32, w: 9, h: 0.45, fontSize: 21, bold: true, color: TXT, fontFace: 'Tahoma' });
-    const gatesTop = a.agg.gates.slice().sort((x, y) => y.in - x.in).slice(0, 8);
-    s.addTable(
-      [[{ text: 'จุดประตู', options: { bold: true, color: DIM } }, { text: 'ขาเข้า', options: { bold: true, color: DIM, align: 'right' } }, { text: 'ขาออก', options: { bold: true, color: DIM, align: 'right' } }],
-       ...gatesTop.map(g => [g.name.trim(), { text: fmt(g.in), options: { align: 'right' } }, { text: fmt(g.out), options: { align: 'right' } }])],
-      { x: 0.45, y: 0.95, w: 5.6, fontSize: 10, color: TXT, fontFace: 'Tahoma',
-        fill: { color: CARD }, border: { type: 'solid', color: '273449', pt: 1 }, rowH: 0.32 });
-    const ins = buildInsights(a, b).slice(0, 4).map(i => '• ' + i.text.replace(/<[^>]+>/g, '')).join('\n\n');
-    s.addText(ins, { x: 6.25, y: 0.95, w: 3.3, h: 3.9, fontSize: 10, color: DIM, fontFace: 'Tahoma', valign: 'top', lineSpacingMultiple: 1.2 });
+    // ---------- 8. ข้อเสนอแนะ ----------
+    let s8 = pptx.addSlide({ masterName: 'BODY' });
+    head(s8, 'ข้อเสนอแนะเชิงปฏิบัติการ', 'ประเด็นที่ควรดำเนินการในงวดถัดไป');
+    recs.slice(0, 5).forEach((r, i) => {
+      const y = 1.3 + i * 0.72;
+      s8.addShape(pptx.ShapeType.roundRect, { x: 0.45, y, w: 9.1, h: 0.62, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
+      s8.addShape(pptx.ShapeType.rect, { x: 0.45, y, w: 0.05, h: 0.62, fill: { color: MINT } });
+      s8.addText(`${i + 1}.`, { x: 0.62, y: y + 0.16, w: 0.3, h: 0.3, fontSize: 11, bold: true, color: MINT, fontFace: F });
+      s8.addText(r, { x: 0.95, y: y + 0.08, w: 8.45, h: 0.48, fontSize: 10, color: TXT, fontFace: F, valign: 'middle', lineSpacingMultiple: 1.15 });
+    });
+    s8.addText('รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติจากข้อมูลบันทึกยอดรายวัน ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง',
+      { x: 0.45, y: 4.78, w: 9.1, h: 0.26, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
-    await pptx.writeFile({ fileName: `SBK_Traffic_${a.label.replace(/[\s.]/g, '')}.pptx` });
-    toast('สร้างไฟล์นำเสนอเรียบร้อย', 'ok');
+    await pptx.writeFile({ fileName: `${docNo}_${a.label.replace(/[\s.]/g, '')}.pptx` });
+    toast('สร้างไฟล์นำเสนอเรียบร้อย · 8 สไลด์', 'ok');
   } catch (e) {
     console.error(e); toast('สร้าง PowerPoint ไม่สำเร็จ: ' + e.message, 'error');
   } finally {
@@ -3546,31 +4411,62 @@ async function exportImage(kind) {
   if (!a) return toast('ยังไม่มีข้อมูล', 'warn');
   if (typeof html2canvas === 'undefined') return toast('โหลดไลบรารีจับภาพไม่สำเร็จ', 'error');
   const btn = kind === 'pdf' ? $('#btn-pdf') : $('#btn-png');
+  if (!btn) return;
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   try {
-    const node = $('#report-sheet');
-    if (!node) throw new Error('ยังไม่มีรายงานให้บันทึก — เปิดหน้า "รายงาน" แล้วรอให้ข้อมูลโหลดเสร็จก่อน');
-    const canvas = await html2canvas(node, { scale: 2, backgroundColor: cssVar('--surface'), useCORS: true, logging: false });
+    const sheet = $('#report-sheet');
+    if (!sheet) throw new Error('ยังไม่มีรายงานให้บันทึก — เปิดหน้า "รายงาน" แล้วรอให้ข้อมูลโหลดเสร็จก่อน');
+    /* จับภาพ "ทีละหน้า" ไม่ใช่ทั้งแผ่นรวด
+       เวอร์ชันก่อนจับทั้งก้อนแล้วย่อใส่ PDF หน้าเดียว ซึ่งถ้าเนื้อหายาวกว่าหน้ากระดาษ
+       บรรทัด pdf.addImage(..., Math.min(h, ...)) จะ "ตัดท้ายทิ้ง" เงียบ ๆ
+       ตอนนี้แต่ละ .rp-page ถูกออกแบบให้พอดี A4 แนวนอนอยู่แล้ว จึงจับแยกหน้าได้ตรง ๆ */
+    await awaitReportChart();
+    const pages = [...sheet.querySelectorAll('.rp-page')];
+    if (!pages.length) throw new Error('ไม่พบหน้ารายงาน');
+    const bg = cssVar('--surface');
+    const shots = [];
+    for (let i = 0; i < pages.length; i++) {
+      btn.textContent = `กำลังสร้าง... (${i + 1}/${pages.length})`;
+      shots.push(await html2canvas(pages[i], { scale: 2, backgroundColor: bg, useCORS: true, logging: false }));
+    }
     const name = `SBK_Traffic_${a.label.replace(/[\s.]/g, '')}`;
+
     if (kind === 'png') {
-      // ใช้ Blob แทน data: URL — ภาพความละเอียด 2x ทำให้ data URL ยาวหลายเมกะไบต์
-      // ซึ่งบางเบราว์เซอร์ปฏิเสธเงียบ ๆ และต้องผูก <a> เข้ากับ DOM ก่อนจึงจะสั่งดาวน์โหลดได้
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      /* ต่อทุกหน้าเป็นภาพเดียวแนวตั้ง เพื่อให้ส่งต่อในแชตได้ครบในไฟล์เดียว
+         ใช้ Blob แทน data: URL — ภาพ 2x แบบ data URL ยาวหลายเมกะไบต์
+         ซึ่งบางเบราว์เซอร์ปฏิเสธเงียบ ๆ */
+      const gap = 24;
+      const w = Math.max(...shots.map(c => c.width));
+      const h = shots.reduce((s2, c) => s2 + c.height, 0) + gap * (shots.length - 1);
+      const out = document.createElement('canvas');
+      out.width = w; out.height = h;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+      let y = 0;
+      for (const c of shots) { ctx.drawImage(c, Math.round((w - c.width) / 2), y); y += c.height + gap; }
+      const blob = await new Promise(res => out.toBlob(res, 'image/png'));
       if (!blob) throw new Error('แปลงภาพไม่สำเร็จ');
       downloadBlob(blob, name + '.png');
     } else {
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) throw new Error('ไลบรารี PDF ยังไม่พร้อม');
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pw = 210, ph = 297, margin = 10;
-      const w = pw - margin * 2;
-      const h = canvas.height * w / canvas.width;
-      /* ฝังเป็น JPEG ไม่ใช่ PNG — ภาพ 2x แบบ PNG ทำให้ไฟล์ PDF โตถึง ~10MB
-         ซึ่งแนบอีเมลหรือส่งต่อลำบาก ส่วน JPEG คุณภาพ 0.92 เหลือไม่ถึง 1MB และอ่านตัวเลขชัดเท่ากัน */
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, w, Math.min(h, ph - margin * 2));
+      // A4 แนวนอน 297×210 มม. — ตรงกับความกว้าง 1123px ที่ใช้จัดหน้าบนจอ
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
+      const pw = 297, ph = 210, margin = 8;
+      const availW = pw - margin * 2, availH = ph - margin * 2;
+      shots.forEach((c, i) => {
+        if (i) pdf.addPage('a4', 'landscape');
+        // ย่อให้พอดีกรอบโดยคงอัตราส่วน แล้วจัดกึ่งกลางหน้า — ไม่ตัดเนื้อหาทิ้ง
+        const r = Math.min(availW / c.width, availH / c.height);
+        const w = c.width * r, h = c.height * r;
+        /* ฝังเป็น JPEG ไม่ใช่ PNG — ภาพ 2x แบบ PNG ทำให้ไฟล์โตถึง ~10MB
+           ส่วน JPEG คุณภาพ 0.92 เหลือไม่ถึง 1MB และอ่านตัวเลขชัดเท่ากัน */
+        pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG',
+          margin + (availW - w) / 2, margin + (availH - h) / 2, w, h);
+      });
       downloadBlob(pdf.output('blob'), name + '.pdf');
     }
-    toast(`บันทึกไฟล์ ${kind.toUpperCase()} เรียบร้อย`, 'ok');
+    toast(`บันทึกไฟล์ ${kind.toUpperCase()} เรียบร้อย · ${shots.length} หน้า`, 'ok');
   } catch (e) {
     console.error(e); toast('สร้างไฟล์ไม่สำเร็จ: ' + e.message, 'error');
   } finally {
@@ -3579,6 +4475,90 @@ async function exportImage(kind) {
                                    : '<svg><use href="#i-image"/></svg>ดาวน์โหลด .png';
   }
 }
+
+/** เติมภาพกราฟลงในรายงาน — เรียกซ้ำได้ ปลอดภัยเสมอ
+    ต้องรอให้ layout เสร็จก่อน ไม่งั้น toBase64Image จะคืน "data:," ซึ่งขึ้นเป็นรูปเสีย */
+function refreshReportChart() {
+  const box = $('#rp-trend-box'), img = $('#rp-trend');
+  if (!box || !img) return;
+
+  /* ทำไมต้องวาดใหม่เองแทนการใช้ chart.toBase64Image() ตรง ๆ:
+     1) Chart.js มีอนิเมชันตอนสร้าง ถ้าจับภาพทันทีจะได้ภาพ "โปร่งใสทั้งแผ่น"
+        ซึ่งมีขนาดไฟล์ปกติ ตรวจด้วยความยาวสตริงไม่เจอ ต้องตรวจถึงระดับพิกเซล
+     2) canvas ของ Chart.js พื้นหลังโปร่งใส พอฝังลงรายงานโหมดมืดแล้วดูทะลุ
+        จึงระบายสีพื้นให้ก่อนเสมอ */
+  const grab = () => {
+    const ch = charts.trend;
+    if (!ch || !ch.canvas || !ch.canvas.width || !ch.canvas.height) return null;
+    const src = ch.canvas;
+    // ตรวจว่ามีพิกเซลที่ถูกวาดจริงหรือไม่ โดยย่อลงมาก่อนเพื่อไม่ให้เสียเวลาอ่านทั้งผืน
+    const probe = document.createElement('canvas');
+    probe.width = 60; probe.height = 24;
+    const pc = probe.getContext('2d', { willReadFrequently: true });
+    try { pc.drawImage(src, 0, 0, probe.width, probe.height); } catch { return null; }
+    let painted = false;
+    try {
+      const data = pc.getImageData(0, 0, probe.width, probe.height).data;
+      for (let i = 3; i < data.length; i += 4) { if (data[i] > 8) { painted = true; break; } }
+    } catch { return null; }          // canvas ปนเปื้อน (ไม่ควรเกิด แต่กันไว้)
+    if (!painted) return null;
+
+    const out = document.createElement('canvas');
+    out.width = src.width; out.height = src.height;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = cssVar('--surface-2') || '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(src, 0, 0);
+    try { return out.toDataURL('image/png'); } catch { return null; }
+  };
+
+  let tries = 0;
+  /* ระหว่างหน้าโลโก้ยังแสดงอยู่ ตัวแอปถูกซ่อนด้วย display:none กราฟจึงไม่มีขนาด
+     การนับรอบในจังหวะนั้นจึงกินโควตาไปเปล่า ๆ ต้องรอจนแอปแสดงจริงก่อนถึงเริ่มนับ */
+  const appHidden = () => { const el = $('#app'); return !el || !el.offsetParent; };
+  const put = () => {
+    const d = grab();
+    if (d) { img.src = d; box.style.display = ''; return true; }
+    box.style.display = 'none';
+    return false;
+  };
+  if (put()) return;
+  const t = setInterval(() => {
+    if (!document.body.contains(img)) return clearInterval(t);   // ถูกเรนเดอร์ใหม่แล้ว
+    if (appHidden()) return;                                     // ยังอยู่หน้าโลโก้ รอต่อ
+    if (put() || ++tries > 20) clearInterval(t);
+  }, 120);
+}
+
+/** รอจนกราฟในรายงานพร้อมจริง ใช้ก่อนส่งออกไฟล์ เพื่อไม่ให้ได้รายงานที่กราฟหาย */
+function awaitReportChart(maxMs = 2500) {
+  return new Promise(res => {
+    refreshReportChart();
+    const t0 = performance.now();
+    const tick = () => {
+      const box = $('#rp-trend-box');
+      if (!box || box.style.display !== 'none' || performance.now() - t0 > maxMs) return res();
+      setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
+/** ปรับอัตราย่อของแผ่นรายงานตามความกว้างที่มีจริง */
+function fitReportSheet() {
+  const wrap = $('#report-canvas'), sheet = $('#report-sheet');
+  if (!wrap || !sheet) return;
+  const avail = wrap.clientWidth;
+  // ไม่ใส่ขั้นต่ำ — ต้องย่อให้พอดีจริง ไม่งั้นแผ่นจะล้นกรอบแล้วถูกตัดขอบขวาทิ้ง
+  const scale = avail > 0 && avail < 1123 ? avail / 1123 : 1;
+  sheet.style.setProperty('--rp-scale', scale.toFixed(4));
+  wrap.style.setProperty('--rp-scale', scale.toFixed(4));
+  wrap.style.setProperty('--rp-h', sheet.scrollHeight + 'px');
+  // จอแคบมากจะอ่านตัวหนังสือบนแผ่นย่อไม่ออก จึงบอกผู้ใช้ตรง ๆ ว่าให้ดาวน์โหลดไปดู
+  const hint = $('#rp-hint');
+  if (hint) hint.style.display = scale < 0.62 ? '' : 'none';
+}
+window.addEventListener('resize', () => { if (state.view === 'report') fitReportSheet(); });
 
 function exportCSV() {
   const a = A();
@@ -3603,6 +4583,7 @@ function switchView(v) {
 
   /* กราฟที่ถูกสร้างตอนมุมมองยังซ่อนอยู่ (display:none) จะได้ canvas ขนาด 0×0
      พอสลับมาแสดงจึงว่างเปล่า — ต้องสั่ง resize เองหลัง layout อัปเดตแล้ว */
+  if (v === 'report') { fitReportSheet(); refreshReportChart(); }
   requestAnimationFrame(() => {
     const sec = $('#view-' + v);
     if (!sec) return;
@@ -3720,6 +4701,8 @@ function hideSplash() {
      จึงต้องสั่ง resize ทุกกราฟทันทีที่แอปแสดงผลจริง */
   requestAnimationFrame(() => {
     Object.values(charts).forEach(c => { try { c.resize(); } catch {} });
+    // กราฟในแผ่นรายงานก็ต้องเติมใหม่ด้วยเหตุผลเดียวกัน
+    try { refreshReportChart(); } catch {}
   });
 }
 
