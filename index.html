@@ -769,6 +769,19 @@ select.input option { background: var(--surface-2); color: var(--text); }
   #report-canvas { margin-bottom: calc((var(--rp-scale, 1) - 1) * var(--rp-h, 0px)); }
 }
 .rp-page { break-inside: avoid; }
+/* ตารางในแผ่นรายงานใช้ระยะแคบกว่าตารางบนแดชบอร์ด
+   บนจอเว้นระยะเยอะเพื่อให้กดง่ายและอ่านสบาย แต่บนกระดาษ A4 ทุกมิลลิเมตรมีค่า
+   ระยะ 6px ยังอ่านง่าย และทำให้หน้า 1 พอดีกระดาษโดยไม่ต้องบีบ */
+#report-sheet table.tbl th, #report-sheet table.tbl td { padding: 6px 10px; }
+#report-sheet table.tbl th:first-child, #report-sheet table.tbl td:first-child { position: static; }
+/* ลูกโดยตรงของหน้ารายงานห้ามหด — ปล่อยให้ตัวตรวจวัดการล้นได้ตรง ๆ */
+.rp-page > * { flex-shrink: 0; }
+/* โหมดบีบระยะ ใช้เฉพาะหน้าที่เนื้อหาเกิน A4 เล็กน้อย
+   ลดเฉพาะระยะบรรทัดและช่องไฟ ไม่ลดขนาดตัวอักษร จึงยังอ่านได้ชัดเท่าเดิม
+   ต้องใช้ !important เพราะสไตล์ในแผ่นรายงานเป็น inline style ทั้งหมด */
+.rp-page.rp-tight * { line-height: 1.45 !important; }
+.rp-page.rp-tight td { padding-top: 3px !important; padding-bottom: 3px !important; }
+.rp-page.rp-tight .tbl td, .rp-page.rp-tight .tbl th { padding-top: 5px !important; padding-bottom: 5px !important; }
 table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.tbl th, table.tbl td { padding: 9px 11px; text-align: right; white-space: nowrap; }
 table.tbl tbody tr:nth-child(even) td { background: var(--surface-2); }
@@ -1015,6 +1028,8 @@ pre.code {
   <symbol id="i-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.2"/><circle cx="18.5" cy="17" r="3.2"/><path d="M5.5 17 10 9h4l2 4M12 9h5M9 6h3"/></symbol>
   <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
   <symbol id="i-taxi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M3 17v-4.2a2 2 0 0 1 .4-1.2l2.2-3A2 2 0 0 1 7.2 8h9.6a2 2 0 0 1 1.6.8l2.2 3a2 2 0 0 1 .4 1.2V17"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/><path d="M9.5 8V5.5h5V8"/></symbol>
+  <!-- ไอคอนรถไฟฟ้า ใช้กับการ์ดสรุปยอดผู้ใช้ทางเชื่อม MRT -->
+  <symbol id="i-train" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14"/><circle cx="8.5" cy="13" r="1"/><circle cx="15.5" cy="13" r="1"/><path d="M8 16.5 6 21M16 16.5 18 21M9 21h6"/></symbol>
   <symbol id="i-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M16 17l5-5-5-5M21 12H9"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
@@ -1984,10 +1999,24 @@ function authorizeScopes() {
     </details>
   </div>
 </div>
+<!-- โหลด Chart.js แบบปิดกั้นไว้ก่อน เพราะต้องใช้ทันทีที่เปิดแดชบอร์ด
+     ส่วนไลบรารีสำหรับ "ส่งออกไฟล์" ย้ายไปโหลดตอนกดปุ่มแทน (ดู ensureLib ด้านล่าง)
+     เหตุผล: เครือข่ายขององค์กรหลายแห่งปิดกั้น CDN บางเจ้า ถ้าโหลดแบบปิดกั้นตั้งแต่ต้น
+     แล้วเจ้านั้นถูกบล็อก ไลบรารีจะหายไปถาวรโดยไม่มีทางกู้คืนในหน้านั้น
+     การโหลดตอนใช้งานทำให้ลองเจ้าอื่นต่อได้ และกดลองใหม่ได้เรื่อย ๆ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* สำรองของ Chart.js — ถ้า jsdelivr ถูกบล็อก ให้ลองเจ้าอื่นแบบ synchronous
+   ต้องใช้ document.write เพราะโค้ดด้านล่างคาดหวังว่า Chart พร้อมแล้วตั้งแต่ตอนบูต */
+if (typeof Chart === 'undefined') {
+  document.write('<script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.js"><\/script>');
+}
+</script>
+<script>
+if (typeof Chart === 'undefined') {
+  document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>');
+}
+</script>
 
 <script>
 /* ==========================================================================
@@ -1997,7 +2026,7 @@ function authorizeScopes() {
    ========================================================================== */
 'use strict';
 
-const APP_VERSION = '59.0';
+const APP_VERSION = '62.0';
 
 /* ---------- ค่าตั้งต้นการเชื่อมต่อ ---------- */
 /* โฟลเดอร์เดียวตามที่ผู้ใช้กำหนด — "ข้อมูลเปรียบเทียบ ยอดลูกค้าและยอดรถยนต์"
@@ -2160,6 +2189,109 @@ function jsonp(url, timeoutMs = 60000, hint = '') {
     s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
     document.head.appendChild(s);
   });
+}
+
+/* =====================================================================
+   ตัวโหลดไลบรารีแบบตามต้องการ (lazy loader) พร้อม CDN สำรอง
+   ---------------------------------------------------------------------
+   ปัญหาจริงที่เจอ: เครือข่ายที่ศูนย์ฯ ปิดกั้น cdnjs.cloudflare.com
+   ไลบรารีสำหรับส่งออกไฟล์จึงไม่ถูกโหลด แล้วปุ่มดาวน์โหลดขึ้นว่า
+   "โหลดไลบรารีไม่สำเร็จ" ทั้งที่อินเทอร์เน็ตใช้งานได้ปกติ
+
+   วิธีแก้: ไล่ลอง CDN ทีละเจ้าจนกว่าจะสำเร็จ และโหลดตอนกดปุ่ม
+   ไม่ใช่ตอนเปิดแอป — เปิดแอปเร็วขึ้นด้วย เพราะไม่ต้องรอไฟล์ที่ยังไม่ได้ใช้
+   ===================================================================== */
+const LIBS = {
+  pptx: {
+    label: 'PowerPoint',
+    ready: () => typeof PptxGenJS !== 'undefined',
+    urls: [
+      'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+      'https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js',
+    ],
+  },
+  h2c: {
+    label: 'จับภาพหน้าจอ',
+    ready: () => typeof html2canvas !== 'undefined',
+    urls: [
+      'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+      'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    ],
+  },
+  jspdf: {
+    label: 'PDF',
+    ready: () => !!(window.jspdf && window.jspdf.jsPDF),
+    urls: [
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    ],
+  },
+};
+const _libPromise = {};      // กันการยิงซ้ำเมื่อผู้ใช้กดปุ่มรัว ๆ
+
+/** โหลดสคริปต์ 1 ไฟล์ พร้อมกำหนดเวลาสูงสุด
+    หมายเหตุ: <script> ที่ถูกไฟร์วอลล์ "หน่วง" ไว้จะไม่ยิง error เลย ต้องตั้งเวลาเองเสมอ */
+function loadScript(url, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    let done = false;
+    const finish = (ok, err) => {
+      if (done) return; done = true; clearTimeout(timer);
+      ok ? resolve() : reject(err);
+    };
+    const timer = setTimeout(() => finish(false, new Error('หมดเวลารอ')), timeoutMs);
+    el.src = url;
+    el.async = true;
+    el.onload = () => finish(true);
+    el.onerror = () => finish(false, new Error('โหลดไม่สำเร็จ'));
+    document.head.appendChild(el);
+  });
+}
+
+/** รับประกันว่าไลบรารีพร้อมใช้ — ไล่ลอง CDN ทีละเจ้า คืนชื่อเจ้าที่สำเร็จ */
+function ensureLib(key, onTry) {
+  const def = LIBS[key];
+  if (!def) return Promise.reject(new Error('ไม่รู้จักไลบรารี ' + key));
+  if (def.ready()) return Promise.resolve('พร้อมอยู่แล้ว');
+  if (_libPromise[key]) return _libPromise[key];
+
+  _libPromise[key] = (async () => {
+    const tried = [];
+    for (const url of def.urls) {
+      const host = (url.match(/^https?:\/\/([^/]+)/) || [])[1] || url;
+      if (onTry) onTry(def.label, host);
+      try {
+        await loadScript(url);
+        /* โหลดไฟล์สำเร็จไม่ได้แปลว่าไลบรารีใช้ได้ — บางเครือข่ายตอบหน้า
+           "ถูกบล็อก" กลับมาเป็น 200 ซึ่งโหลดผ่านแต่ไม่มีตัวแปรที่ต้องการ */
+        if (def.ready()) return host;
+        tried.push(`${host} (ไฟล์ไม่ถูกต้อง)`);
+      } catch (e) {
+        tried.push(`${host} (${e.message})`);
+      }
+    }
+    delete _libPromise[key];        // ล้มเหลวทั้งหมด — ให้กดลองใหม่ได้
+    throw new Error(`โหลดไลบรารี${def.label}ไม่สำเร็จ · ลองแล้ว ${tried.length} แหล่ง: ${tried.join(' · ')}`);
+  })();
+  return _libPromise[key];
+}
+
+/** โหลดไลบรารีส่งออกไว้ล่วงหน้าแบบเงียบ ๆ — ล้มเหลวได้ ไม่กระทบการใช้งาน
+    ผู้ใช้ส่วนใหญ่จะกดส่งออกหลังดูข้อมูลสักพัก ช่วงนั้นจึงเป็นจังหวะที่ดีที่สุด */
+function warmExportLibs() {
+  if (!navigator.onLine) return;
+  setTimeout(() => {
+    ['pptx', 'h2c', 'jspdf'].forEach(k => { ensureLib(k).catch(() => {}); });
+  }, 3000);
+}
+
+/** สถานะไลบรารีทั้งหมด ใช้แสดงในหน้าตั้งค่า */
+function libStatus() {
+  return Object.entries(LIBS).map(([k, d]) => ({ key: k, label: d.label, ready: d.ready() }))
+    .concat([{ key: 'chart', label: 'กราฟ', ready: typeof Chart !== 'undefined' }]);
 }
 
 /* URL ของ Apps Script รุ่นก่อน ๆ — ถ้าเครื่องไหนยังจำค่าเก่าไว้ใน localStorage
@@ -2417,6 +2549,7 @@ async function loadFromDrive({ silent = false, force = false } = {}) {
     setConn('ok', `${list.length} ช่วง · ${(ms / 1000).toFixed(1)} วิ`);
     renderAll();
     prefetchRecent();              // อุ่นแคชเดือนย้อนหลังไว้เบื้องหลัง
+    warmExportLibs();              // อุ่นไลบรารีส่งออกไว้ด้วย กดปุ่มแล้วจะได้ไฟล์ทันที
     if (!silent) {
       toast(`พร้อมใช้งาน · มีข้อมูล ${list.length} เดือน (${list[0].label} – ${list[list.length - 1].label})\n` +
             `โหลดช่วงที่เลือกแล้ว ใช้เวลา ${(ms / 1000).toFixed(1)} วินาที`, 'ok', 6000);
@@ -2630,6 +2763,13 @@ function updateConnSummary() {
     m.failed.forEach(f => L.push(`   ❌ ${f.name}: ${String(f.error).slice(0, 80)}`));
   }
   if (state.lastSync) L.push(`ซิงค์ล่าสุด: ${new Date(state.lastSync).toLocaleString('th-TH')}`);
+  /* สถานะไลบรารีภายนอก — ถ้าเครือข่ายปิดกั้น CDN ปุ่มส่งออกจะใช้ไม่ได้
+     ผู้ใช้ควรเห็นสาเหตุจากตรงนี้ได้ก่อน ไม่ต้องรอให้กดปุ่มแล้วขึ้น error */
+  const libs = libStatus();
+  L.push('ไลบรารีภายนอก: ' + libs.map(x => `${x.ready ? '✅' : '⏳'} ${x.label}`).join('  '));
+  if (libs.some(x => !x.ready)) {
+    L.push('   (ที่ยังไม่พร้อมจะถูกโหลดอัตโนมัติเมื่อกดปุ่มส่งออก หากโหลดไม่สำเร็จระบบจะลอง CDN สำรองให้เอง)');
+  }
   el.textContent = L.join('\n') || 'ยังไม่ได้เชื่อมต่อ';
 }
 
@@ -2724,10 +2864,18 @@ const METRICS = [
   { key: 'vOut24',label: 'รถยนต์ออก',       unit: 'คัน', icon: 'i-out',   color: 'violet' },
   { key: 'mc',    label: 'จักรยานยนต์',     unit: 'คัน', icon: 'i-bike',  color: 'amber' },
   { key: 'dlv',   label: 'เดลิเวอรี่',       unit: 'คัน', icon: 'i-box',   color: 'rose' },
-  { key: 'taxi',  label: 'แท็กซี่',          unit: 'คัน', icon: 'i-taxi',  color: 'sky' },
+  /* MRT ไม่มีแถวสรุปของตัวเองในชีต แต่คำนวณได้จากประตูที่ชื่อมีคำว่า MRT
+     (ปัจจุบันคือ "ประตู สะพาน MRT ชั้น.2") จึงเป็นตัววัดที่ได้มาจากข้อมูลรายประตู
+     ใช้แทนแท็กซี่ซึ่งในไฟล์จริงเป็นศูนย์ทุกวัน ทำให้การ์ดนั้นไม่ให้ข้อมูลอะไรเลย */
+  { key: 'mrt',   label: 'ผู้ใช้ทางเชื่อม MRT', unit: 'คน', icon: 'i-train', color: 'sky', derived: true },
 ];
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m => [m.key, m]));
 const SUM_KEYS = ['cIn', 'cOut', 'vIn24', 'vIn', 'vOut24', 'vOut', 'mc', 'taxi', 'dlv'];
+/* ตัววัดที่คำนวณจากข้อมูลรายประตู ไม่ได้มาจากแถวสรุปในชีตโดยตรง */
+const DERIVED_KEYS = ['mrt', 'mrtOut'];
+const ALL_KEYS = SUM_KEYS.concat(DERIVED_KEYS);
+/** ประตูนี้นับเป็นทางเชื่อม MRT หรือไม่ */
+function isMrtGate(name) { return /MRT/i.test(String(name || '')); }
 
 /* ลำดับชั้นสำหรับเรียงผล — ชั้นใต้ดินมาก่อน แล้วไล่ขึ้นไป */
 const FLOOR_ORDER = ['B', '1', '2', '3', '4', '5', '6', 'อื่น ๆ'];
@@ -2757,11 +2905,16 @@ function aggregate(file) {
   const days = allDays.filter(d => !isEmptyDay(d));
   const emptyDayCount = allDays.length - days.length;
   const n = days.length;                       // ★ จำนวนวันที่มีข้อมูลจริง
-  const total = Object.fromEntries(SUM_KEYS.map(k => [k, 0]));
+  const total = Object.fromEntries(ALL_KEYS.map(k => [k, 0]));
   const hr = { cIn: zeros(15), cOut: zeros(15), vIn: zeros(24), vOut: zeros(24) };
   const gateIn = [], gateOut = [];
   const wk = { weekday: { n: 0 }, holiday: { n: 0 } };
-  SUM_KEYS.forEach(k => { wk.weekday[k] = 0; wk.holiday[k] = 0; });
+  ALL_KEYS.forEach(k => { wk.weekday[k] = 0; wk.holiday[k] = 0; });
+
+  /* ตำแหน่งของประตู MRT ในแถวข้อมูลรายประตู หาไว้ล่วงหน้าครั้งเดียว
+     ไม่ต้องเทียบชื่อซ้ำทุกวัน และถ้าไม่มีประตู MRT เลย ค่าจะเป็น 0 ทั้งเดือนอย่างถูกต้อง */
+  const mrtIdx = (file.gates || []).map((nm, i) => isMrtGate(nm) ? i : -1).filter(i => i >= 0);
+  const sumAt = (arr, idx) => idx.reduce((t, i) => t + num(arr && arr[i]), 0);
 
   const rows = [];
   for (const d of days) {
@@ -2769,20 +2922,23 @@ function aggregate(file) {
     const row = { ...d, ...info, dateLabel: `${d.d} ${monthTH(file.month)} ${file.year || ''}`.trim() };
     rows.push(row);
 
-    SUM_KEYS.forEach(k => { total[k] += num(d[k]); });
+    // ค่า MRT ของวันนี้ ต้องคิดก่อนรวมยอด เพื่อให้เข้าทั้ง total, wk และ extremes พร้อมกัน
+    row.mrt    = sumAt(d.gIn,  mrtIdx);
+    row.mrtOut = sumAt(d.gOut, mrtIdx);
+    ALL_KEYS.forEach(k => { total[k] += num(k === 'mrt' || k === 'mrtOut' ? row[k] : d[k]); });
     addInto(hr.cIn, d.cInH); addInto(hr.cOut, d.cOutH);
     addInto(hr.vIn, d.vInH); addInto(hr.vOut, d.vOutH);
 
     const bucket = info.isHoliday ? wk.holiday : wk.weekday;
     bucket.n++;
-    SUM_KEYS.forEach(k => { bucket[k] += num(d[k]); });
+    ALL_KEYS.forEach(k => { bucket[k] += num(k === 'mrt' || k === 'mrtOut' ? row[k] : d[k]); });
 
     (d.gIn  || []).forEach((v, i) => { gateIn[i]  = (gateIn[i]  || 0) + num(v); });
     (d.gOut || []).forEach((v, i) => { gateOut[i] = (gateOut[i] || 0) + num(v); });
   }
 
   // ค่าเฉลี่ยต่อวัน — หารด้วย n เสมอ
-  const avg = Object.fromEntries(SUM_KEYS.map(k => [k, n ? total[k] / n : 0]));
+  const avg = Object.fromEntries(ALL_KEYS.map(k => [k, n ? total[k] / n : 0]));
   const hrAvg = {
     cIn:  hr.cIn.map(v => n ? v / n : 0),
     cOut: hr.cOut.map(v => n ? v / n : 0),
@@ -2792,7 +2948,7 @@ function aggregate(file) {
 
   // วันที่มากสุด/น้อยสุด ของแต่ละตัววัด
   const extremes = {};
-  for (const k of SUM_KEYS) {
+  for (const k of ALL_KEYS) {
     let hi = null, lo = null;
     for (const r of rows) {
       const v = num(r[k]);
@@ -2833,7 +2989,7 @@ function aggregate(file) {
   // ค่าเฉลี่ยวันธรรมดา/วันหยุด
   for (const key of ['weekday', 'holiday']) {
     const b = wk[key];
-    b.avg = Object.fromEntries(SUM_KEYS.map(k => [k, b.n ? b[k] / b.n : 0]));
+    b.avg = Object.fromEntries(ALL_KEYS.map(k => [k, b.n ? b[k] / b.n : 0]));
   }
 
   /* ---------- ประมาณจำนวนคนที่อยู่ในศูนย์รายชั่วโมง ----------
@@ -2887,11 +3043,13 @@ function aggregate(file) {
     .sort((x, y) => floorRank(x.floor) - floorRank(y.floor) || (x.floor < y.floor ? -1 : 1));
 
   // hasData ใช้ยอดรวม ไม่ใช่จำนวนวัน — เดือนที่มีชีตครบแต่ยอดเป็นศูนย์ต้องถือว่า "ไม่มีข้อมูล"
-  const grand = SUM_KEYS.reduce((t, k) => t + total[k], 0);
+  const grand = SUM_KEYS.reduce((t, k) => t + total[k], 0);   // ไม่รวมตัววัดที่คำนวณต่อ ไม่งั้นจะนับซ้ำ
   return { days: n, emptyDayCount, hasData: grand > 0, total, avg,
            hrSum: hr, hrAvg, peaks, gates, extremes, rows, wk,
            occupancy, occPeak, dowHour, dowCnt, dowMax, dhBest, floors, floorTotal,
-           orphanGateIn };
+           orphanGateIn,
+           mrtGates: (file.gates || []).filter(isMrtGate),
+           mrtShare: total.cIn ? total.mrt / total.cIn * 100 : 0 };
 }
 
 /** เปอร์เซ็นต์เปลี่ยนแปลง — คืน null เมื่อฐานเป็น 0 (หารไม่ได้ ไม่ใช่ 0%) */
@@ -2974,6 +3132,47 @@ function comparabilityNote(a, b) {
    ทุกกราฟอ่านสีจาก CSS variable ของธีมปัจจุบัน และถูกสร้างใหม่เมื่อสลับธีม
    จึงไม่มีปัญหาเส้นตาราง/ป้ายกำกับกลืนพื้นหลังในโหมดมืด
    ========================================================================== */
+
+/* สร้างกราฟผ่านตัวกลางตัวเดียว เพื่อให้มีจุดเดียวที่จัดการกรณี Chart.js โหลดไม่ได้
+   (เครือข่ายบางแห่งปิดกั้น CDN) เมื่อเกิดกรณีนั้น ตัวเลขและตารางทั้งหมดยังต้องใช้งานได้
+   เพราะเนื้อหาสำคัญของรายงานคือตัวเลข ไม่ใช่กราฟ */
+function mkChart(key, sel, cfg) {
+  const el = $(sel);
+  if (!el) return null;
+  if (typeof Chart === 'undefined') { chartUnavailable(el); return null; }
+  try {
+    charts[key] = new Chart(el, cfg);
+    clearChartFallback(el);          // เผื่อรอบก่อนเคยขึ้นข้อความแทนกราฟไว้
+    return charts[key];
+  } catch (e) {
+    console.error('[chart]', key, e);
+    chartUnavailable(el, e.message);
+    return null;
+  }
+}
+
+/** คืนพื้นที่กราฟให้กลับมาปกติ เมื่อไลบรารีโหลดได้ในภายหลัง */
+function clearChartFallback(canvas) {
+  if (!canvas || !canvas.dataset.fallback) return;
+  delete canvas.dataset.fallback;
+  canvas.style.display = '';
+  const nx = canvas.nextSibling;
+  if (nx && nx.nodeType === 1 && nx.classList.contains('card-note')) nx.remove();
+}
+
+/** แทนที่พื้นที่กราฟด้วยคำอธิบาย แทนการปล่อยให้เป็นช่องว่างที่ดูเหมือนระบบพัง */
+function chartUnavailable(canvas, why) {
+  if (!canvas || !canvas.parentNode || canvas.dataset.fallback) return;
+  canvas.dataset.fallback = '1';
+  const box = document.createElement('div');
+  box.className = 'card-note';
+  box.style.cssText = 'display:grid;place-items:center;text-align:center;min-height:' +
+    (canvas.getAttribute('height') || 240) + 'px;padding:18px;border:1px dashed var(--line);border-radius:10px';
+  box.textContent = why ? `แสดงกราฟไม่ได้: ${why}` :
+    'แสดงกราฟไม่ได้ — โหลดไลบรารีกราฟจากอินเทอร์เน็ตไม่สำเร็จ ตัวเลขและตารางทั้งหมดยังใช้งานได้ตามปกติ';
+  canvas.style.display = 'none';
+  canvas.parentNode.insertBefore(box, canvas.nextSibling);
+}
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
@@ -3204,7 +3403,7 @@ function renderOverview() {
   // --- วันธรรมดา vs วันหยุด ---
   destroyChart('wkd');
   const keys = ['cIn', 'vIn24', 'mc', 'dlv'];
-  charts.wkd = new Chart($('#ch-wkd'), {
+  mkChart('wkd', '#ch-wkd', {
     type: 'bar',
     data: {
       labels: keys.map(k => METRIC_BY_KEY[k].label),
@@ -3218,11 +3417,13 @@ function renderOverview() {
 
   // --- สัดส่วนยานพาหนะ ---
   destroyChart('mix');
-  const mixKeys = ['vIn24', 'mc', 'dlv', 'taxi'];
+  /* ไม่ใส่แท็กซี่ — ในไฟล์จริงเป็นศูนย์ทุกวัน ใส่ไปก็เป็นเสี้ยวที่มองไม่เห็น
+     และไม่ใส่ MRT ด้วย เพราะ MRT นับเป็น "คน" ไม่ใช่ "คัน" จะรวมสเกลกันไม่ได้ */
+  const mixKeys = ['vIn24', 'mc', 'dlv'];
   const mixVals = mixKeys.map(k => a.agg.total[k]);
   const mixTotal = mixVals.reduce((s, v) => s + v, 0);
   $('#mix-note').textContent = `รวม ${fmt(mixTotal)} คัน ตลอด ${a.agg.days} วัน`;
-  charts.mix = new Chart($('#ch-mix'), {
+  mkChart('mix', '#ch-mix', {
     type: 'doughnut',
     data: {
       labels: mixKeys.map(k => METRIC_BY_KEY[k].label),
@@ -3288,7 +3489,7 @@ function drawTrend(metric, p) {
     pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: p.violet,
     pointHoverBorderColor: p.surface, pointHoverBorderWidth: 2, spanGaps: true,
   });
-  charts.trend = new Chart($('#ch-trend'), { type: 'line', data: { labels, datasets: ds }, options: baseChartOpts(p) });
+  mkChart('trend', '#ch-trend', { type: 'line', data: { labels, datasets: ds }, options: baseChartOpts(p) });
 }
 
 /* ========================= รายชั่วโมง ========================= */
@@ -3309,7 +3510,7 @@ function renderHourly() {
   $('#hr-veh-note').textContent  = `${suffix} · ตารางยานพาหนะบันทึก 01.00–24.00 น.`;
 
   destroyChart('hrCust');
-  charts.hrCust = new Chart($('#ch-hr-cust'), {
+  mkChart('hrCust', '#ch-hr-cust', {
     type: 'bar',
     data: {
       labels: HOURS_CUST.map(hLabel),
@@ -3322,7 +3523,7 @@ function renderHourly() {
   });
 
   destroyChart('hrVeh');
-  charts.hrVeh = new Chart($('#ch-hr-veh'), {
+  mkChart('hrVeh', '#ch-hr-veh', {
     type: 'line',
     data: {
       labels: HOURS_VEH.map(hLabel),
@@ -3346,7 +3547,7 @@ function renderHourly() {
     : `เฉลี่ยต่อวัน · หนาแน่นสุด ${op.label} น. ประมาณ ${fmt(Math.round(op.value))} คน` +
       (a.agg.peaks.cIn.empty ? '' : ` (ชั่วโมงที่คนเข้ามากสุดคือ ${a.agg.peaks.cIn.label} น.)`);
   destroyChart('occ');
-  charts.occ = new Chart($('#ch-occ'), {
+  mkChart('occ', '#ch-occ', {
     type: 'line',
     data: {
       labels: HOURS_CUST.map(hLabel),
@@ -3479,18 +3680,18 @@ function renderDaily() {
       <td>${r.dowName}${r.holidayName ? ` <span class="tag amber">${r.holidayName}</span>` : (r.weekend ? ' <span class="tag">วันหยุด</span>' : '')}</td>
       <td class="num">${fmt(r.cIn)}</td><td class="num">${fmt(r.cOut)}</td>
       <td class="num">${fmt(r.vIn24)}</td><td class="num">${fmt(r.vOut24)}</td>
-      <td class="num">${fmt(r.mc)}</td><td class="num">${fmt(r.dlv)}</td><td class="num">${fmt(r.taxi)}</td>
+      <td class="num">${fmt(r.mc)}</td><td class="num">${fmt(r.dlv)}</td><td class="num">${fmt(r.mrt)}</td>
     </tr>`).join('');
   const t = a.agg.total;
   $('#tbl-daily').innerHTML = `<thead><tr>
       <th>วันที่</th><th>วัน</th><th>ลูกค้าเข้า</th><th>ลูกค้าออก</th>
-      <th>รถยนต์เข้า</th><th>รถยนต์ออก</th><th>จยย.</th><th>เดลิเวอรี่</th><th>แท็กซี่</th>
+      <th>รถยนต์เข้า</th><th>รถยนต์ออก</th><th>จยย.</th><th>เดลิเวอรี่</th><th>MRT</th>
     </tr></thead><tbody>${rows}</tbody>
     <tfoot><tr style="font-weight:700;border-top:2px solid var(--line)">
       <td colspan="2">รวม ${a.agg.days} วัน</td>
       <td class="num">${fmt(t.cIn)}</td><td class="num">${fmt(t.cOut)}</td>
       <td class="num">${fmt(t.vIn24)}</td><td class="num">${fmt(t.vOut24)}</td>
-      <td class="num">${fmt(t.mc)}</td><td class="num">${fmt(t.dlv)}</td><td class="num">${fmt(t.taxi)}</td>
+      <td class="num">${fmt(t.mc)}</td><td class="num">${fmt(t.dlv)}</td><td class="num">${fmt(t.mrt)}</td>
     </tr></tfoot>`;
 }
 
@@ -3507,7 +3708,7 @@ function renderGates() {
   $('#gate-note').textContent = `${a.label} · ${a.agg.gates.length} จุดประตู · แสดง 15 อันดับแรก · รวม ${fmt(grand)} คน`;
 
   destroyChart('gates');
-  charts.gates = new Chart($('#ch-gates'), {
+  mkChart('gates', '#ch-gates', {
     type: 'bar',
     data: {
       labels: shown.map(g => g.name.replace(/^ประตู\s*/, '').slice(0, 26)),
@@ -3539,7 +3740,7 @@ function renderGates() {
   $('#floor-note').textContent =
     `${a.label} · ${fl.length} ชั้น · รวม ${fmt(a.agg.floorTotal)} คน`;
   destroyChart('floor');
-  charts.floor = new Chart($('#ch-floor'), {
+  mkChart('floor', '#ch-floor', {
     type: 'bar',
     data: {
       labels: fl.map(f => f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor),
@@ -3610,7 +3811,7 @@ function renderCompare() {
 
   const keys = ['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv'];
   destroyChart('cmp');
-  charts.cmp = new Chart($('#ch-cmp'), {
+  mkChart('cmp', '#ch-cmp', {
     type: 'bar',
     data: {
       labels: keys.map(k => METRIC_BY_KEY[k].label),
@@ -3706,10 +3907,17 @@ function buildReportAnalysis(a, b) {
     const up = movers.filter(x => x.d > 0).slice(0, 2);
     const dn = movers.filter(x => x.d < 0).slice(0, 2);
     let s2 = '';
-    if (up.length) s2 += `ประเภทที่เติบโตเด่นชัดที่สุดคือ ` +
-      up.map(x => `${x.m.label} (เพิ่มขึ้นร้อยละ ${x.d.toFixed(1)} เป็นเฉลี่ย ${fmt(Math.round(av[x.m.key]))} ${x.m.unit}ต่อวัน)`).join(' และ ') + ' ';
-    if (dn.length) s2 += `ขณะที่ประเภทที่ปรับตัวลดลงมากที่สุดคือ ` +
-      dn.map(x => `${x.m.label} (ลดลงร้อยละ ${Math.abs(x.d).toFixed(1)})`).join(' และ ');
+    /* ประโยคต้องอ่านรู้เรื่องทุกกรณี — เดิมถ้าไม่มีประเภทใดเพิ่มขึ้นเลย
+       ข้อความจะขึ้นต้นด้วย "ขณะที่..." ลอย ๆ โดยไม่มีประโยคหน้า */
+    const upTxt = up.map(x => `${x.m.label} (เพิ่มขึ้นร้อยละ ${x.d.toFixed(1)} เป็นเฉลี่ย ${fmt(Math.round(av[x.m.key]))} ${x.m.unit}ต่อวัน)`).join(' และ ');
+    const dnTxt = dn.map(x => `${x.m.label} (ลดลงร้อยละ ${Math.abs(x.d).toFixed(1)})`).join(' และ ');
+    if (up.length && dn.length) {
+      s2 = `ประเภทที่เติบโตเด่นชัดที่สุดคือ ${upTxt} ขณะที่ประเภทที่ปรับตัวลดลงมากที่สุดคือ ${dnTxt}`;
+    } else if (dn.length) {
+      s2 = `ทุกประเภทปรับตัวลดลงเมื่อเทียบกับ ${b.label} โดยประเภทที่ลดลงมากที่สุดคือ ${dnTxt}`;
+    } else if (up.length) {
+      s2 = `ทุกประเภทปรับตัวเพิ่มขึ้นเมื่อเทียบกับ ${b.label} โดยประเภทที่เติบโตเด่นชัดที่สุดคือ ${upTxt}`;
+    }
     if (!s2) s2 = 'ไม่มีช่วงฐานสำหรับเปรียบเทียบการเปลี่ยนแปลงรายประเภท';
     S.push({ no: S.length + 1, title: 'การเปลี่ยนแปลงรายประเภท', body: s2.trim() });
   }
@@ -3812,6 +4020,19 @@ function buildReportAnalysis(a, b) {
       }
     }
     s6 += ` ในช่วงเดียวกันมีรถจักรยานยนต์เข้า ${fmt(t.mc)} คัน และรถเดลิเวอรี่ ${fmt(t.dlv)} คัน`;
+    /* ทางเชื่อม MRT เป็นตัวชี้สัดส่วนผู้เดินทางด้วยระบบรางได้ตรงที่สุดเท่าที่ข้อมูลชุดนี้มี
+       จึงใส่ไว้ในหัวข้อรูปแบบการเดินทาง ไม่แยกเป็นหัวข้อของตัวเอง */
+    if (ag.total.mrt > 0) {
+      s6 += ` สำหรับผู้ใช้บริการที่เข้าทางสะพานเชื่อม MRT มีจำนวน ${fmt(ag.total.mrt)} คน ` +
+            `คิดเป็นร้อยละ ${ag.mrtShare.toFixed(1)} ของผู้เข้าศูนย์ทั้งหมด เฉลี่ย ${fmt(Math.round(ag.avg.mrt))} คนต่อวัน`;
+      if (b && b.agg.total.mrt > 0) {
+        const dm = delta(ag.avg.mrt, b.agg.avg.mrt);
+        if (dm != null) {
+          s6 += ` ${dm > 0 ? 'เพิ่มขึ้น' : 'ลดลง'}จาก ${b.label} ร้อยละ ${Math.abs(dm).toFixed(1)} ` +
+                `(สัดส่วนเดิมร้อยละ ${b.agg.mrtShare.toFixed(1)})`;
+        }
+      }
+    }
     S.push({ no: S.length + 1, title: 'รูปแบบการเดินทาง', body: s6 });
   }
 
@@ -3927,23 +4148,24 @@ function renderReport() {
       <button class="btn primary" id="btn-pptx" style="width:100%"><svg><use href="#i-slides"/></svg>ดาวน์โหลด .pptx</button>
     </div>
     <div class="card c-rose">
-      <div class="card-head"><div><h3 class="card-title">รายงานอินโฟกราฟิก</h3><p class="card-note">เอกสาร A4 แนวนอน 2 หน้า พร้อมบทวิเคราะห์</p></div></div>
+      <div class="card-head"><div><h3 class="card-title">รายงานอินโฟกราฟิก</h3><p class="card-note">เอกสาร A4 แนวนอน 3 หน้า พร้อมบทวิเคราะห์</p></div></div>
       <button class="btn" id="btn-pdf" style="width:100%"><svg><use href="#i-report"/></svg>ดาวน์โหลด .pdf</button>
     </div>
     <div class="card c-violet">
-      <div class="card-head"><div><h3 class="card-title">ภาพรายงาน</h3><p class="card-note">ไฟล์ PNG ส่งต่อในแชตได้ทันที</p></div></div>
+      <div class="card-head"><div><h3 class="card-title">ภาพรายงาน</h3><p class="card-note">ไฟล์ PNG แยกทีละหน้า ส่งต่อในแชตได้ทันที</p></div></div>
       <button class="btn" id="btn-png" style="width:100%"><svg><use href="#i-image"/></svg>ดาวน์โหลด .png</button>
     </div>`;
 
   /* ===================================================================
-     รายงานฉบับทางการ — เอกสาร A4 แนวนอน 2 หน้า
+     รายงานฉบับทางการ — เอกสาร A4 แนวนอน 3 หน้า
      -------------------------------------------------------------------
      ทำไมต้องแนวนอน: เนื้อหาหลักของรายงานนี้คือตารางเปรียบเทียบ 5 คอลัมน์
      กราฟแนวโน้มรายวัน 31 จุด และตารางภาคผนวก 2 ชุด ซึ่งบนหน้าแนวตั้ง
      ต้องบีบความกว้างจนตัวเลขอ่านยาก ส่วนแนวนอนวางได้ 3 คอลัมน์สบาย ๆ
 
-     หน้า 1 — หัวกระดาษ / บทสรุปผู้บริหาร / ตัวเลขสำคัญ / ตารางสถิติ / ภาคผนวกช่วงเวลา
-     หน้า 2 — บทวิเคราะห์ / ข้อเสนอแนะ / ภาคผนวกรายประตูและรายชั้น / ท้ายกระดาษ
+     หน้า 1 — หัวกระดาษ / บทสรุปผู้บริหาร / ตัวเลขสำคัญ / ตารางสถิติ / ช่วงเวลาหนาแน่น
+     หน้า 2 — บทวิเคราะห์ / ประตูที่มีผู้ใช้สูงสุด / สัดส่วนรายชั้น
+     หน้า 3 — ข้อเสนอแนะ / กราฟแนวโน้ม / นิยามและวิธีคำนวณ / ช่องลงนามรับรอง
 
      ความกว้างคงที่ 1123px = A4 แนวนอนที่ 96dpi (297mm) เพื่อให้สัดส่วน
      ที่เห็นบนจอตรงกับไฟล์ PDF ที่ได้ ไม่ต้องเดาตอนจัดหน้า
@@ -3982,15 +4204,20 @@ function renderReport() {
 
   /* หัวกระดาษของทุกหน้า — เลขหน้าเปลี่ยน ที่เหลือเหมือนกัน เพื่อให้แต่ละแผ่น
      ยืนอยู่ได้ด้วยตัวเองเมื่อถูกพิมพ์แยกหรือส่งต่อทีละหน้า */
+  const PAGES = 3;
   const runHead = (pageNo) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;
          border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:13px;
          font-size:9.5px;color:var(--text-faint)">
       <span>ศูนย์การค้าซีคอน บางแค · รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ · ${a.label}</span>
-      <span>${docNo} · หน้า ${pageNo}/2</span>
+      <span>${docNo} · หน้า ${pageNo}/${PAGES}</span>
     </div>`;
 
-  const PAGE = 'width:1123px;min-height:794px;box-sizing:border-box;padding:26px 30px;' +
+  /* ทุกหน้ากว้าง 1123 × สูง 794 px เท่ากันพอดี (= A4 แนวนอนที่ 96dpi)
+     ห้ามให้หน้าใดสูงเกิน — ตอนส่งออก PDF หน้าที่สูงกว่าจะถูกย่อทั้งหน้าให้พอดีกระดาษ
+     ผลคือหน้านั้นแคบกว่าและตัวหนังสือเล็กกว่าหน้าอื่น (ปัญหาที่เจอในหน้า 2 ของรุ่นก่อน)
+     จึงแบ่งเนื้อหาเป็น 3 หน้า และมี checkReportPages() ตรวจทุกครั้งที่สร้างรายงาน */
+  const PAGE = 'width:1123px;height:794px;box-sizing:border-box;padding:26px 30px;overflow:hidden;' +
                'background:var(--surface);border:1px solid var(--line);border-radius:10px;' +
                'font-size:12px;line-height:1.6;display:flex;flex-direction:column';
 
@@ -4027,7 +4254,7 @@ function renderReport() {
       </div>
 
       <!-- ---------- บทสรุปผู้บริหาร ---------- -->
-      <div style="margin-top:14px;padding:13px 16px;border-radius:10px;
+      <div style="margin-top:13px;padding:11px 16px;border-radius:10px;
            background:var(--accent-a14);border-left:3px solid var(--accent)">
         <div style="font-size:10.5px;font-weight:700;color:var(--accent);letter-spacing:.05em;margin-bottom:4px">บทสรุปผู้บริหาร</div>
         <div style="font-size:12.5px;line-height:1.72">${analysis[0] ? analysis[0].body : '—'}</div>
@@ -4035,15 +4262,16 @@ function renderReport() {
 
       <!-- ---------- ตัวเลขสำคัญ 6 ช่อง (แนวนอนวางได้ครบทุกตัววัดหลัก) ---------- -->
       <div style="margin-top:15px">${sec('ตัวเลขสำคัญประจำงวด', b ? `ร้อยละเทียบกับ ${b.label} ด้วยค่าเฉลี่ยต่อวัน` : '')}</div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:9px">
-        ${['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv'].map(k => {
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
+        ${['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv', 'mrt'].map(k => {
           const m = METRIC_BY_KEY[k];
           const d = b ? delta(av[k], b.agg.avg[k]) : null;
           const col = d == null ? 'var(--flat)' : d > 0 ? 'var(--up)' : 'var(--down)';
-          return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+          return `<div style="border:1px solid var(--line);border-radius:10px;padding:9px 11px;
                background:var(--m-${m.color}-s);border-top:3px solid var(--m-${m.color}-c)">
-            <div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-bottom:4px">${m.label}</div>
-            <div class="num" style="font-size:19px;font-weight:700;color:var(--m-${m.color}-i);letter-spacing:-.02em">${fmt(t[k])}</div>
+            <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;margin-bottom:4px;
+                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.label}</div>
+            <div class="num" style="font-size:18px;font-weight:700;color:var(--m-${m.color}-i);letter-spacing:-.02em">${fmt(t[k])}</div>
             <div style="font-size:9.5px;color:var(--text-faint);margin-top:2px">เฉลี่ย ${fmt(Math.round(av[k]))} ${m.unit}/วัน</div>
             <div style="font-size:10.5px;color:${col};font-weight:700;margin-top:3px">${d == null ? '—' : pct(d)}</div>
           </div>`;
@@ -4086,8 +4314,109 @@ function renderReport() {
             “ผู้อยู่ภายในศูนย์” เป็นค่าประมาณจากยอดเข้าสะสมหักยอดออกสะสม
             ใช้ชี้ชั่วโมงที่ภาระงานจริงสูงสุด ซึ่งมักไม่ตรงกับชั่วโมงที่มีผู้เข้ามากที่สุด
           </div>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+      <div style="margin-top:14px;padding-top:9px;border-top:1px solid var(--line);
+           display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:var(--text-faint);line-height:1.6">
+        <span>รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติ ตัวเลขอ้างอิงจากไฟล์ต้นฉบับโดยตรง</span>
+        <span>SBK Traffic Intelligence v${APP_VERSION} · ${docNo} · หน้า 1/${PAGES}</span>
+      </div>
+    </section>
+
+    <!-- ================= หน้า 2 : บทวิเคราะห์ + ภาคผนวกรายประตู ================= -->
+    <section class="rp-page" style="${PAGE}">
+      ${runHead(2)}
+
+      <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:26px">
+        <!-- ---------- คอลัมน์ซ้าย: บทวิเคราะห์ ---------- -->
+        <div style="min-width:0">
+          ${sec('บทวิเคราะห์', 'สรุปจากตัวเลขในงวดรายงาน')}
+          <div style="display:flex;flex-direction:column;gap:11px">
+            ${analysis.slice(1).map((x, i) => `
+              <div style="display:flex;gap:10px">
+                <div style="flex:0 0 22px;height:22px;border-radius:7px;display:grid;place-items:center;
+                     background:var(--accent-a14);color:var(--accent);font-size:11px;font-weight:700">${i + 1}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:700;margin-bottom:2px">${x.title}</div>
+                  <div style="font-size:12px;color:var(--text-dim);line-height:1.7">${x.body}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- ---------- คอลัมน์ขวา: ภาคผนวกรายประตูและรายชั้น ---------- -->
+        <div style="min-width:0">
+          ${sec('จุดประตูที่มีผู้ใช้สูงสุด', `จากทั้งหมด ${a.agg.gates.length} จุด`)}
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            ${topGates.map((g, i) => `
+              <tr style="border-bottom:1px solid var(--line-soft)">
+                <td style="padding:5px 0;color:var(--text-faint);width:18px">${i + 1}</td>
+                <td style="padding:5px 0;word-break:break-word">${g.name.trim()}</td>
+                <td class="num" style="padding:5px 0;text-align:right;font-weight:600;white-space:nowrap">${fmt(g.in)}</td>
+                <td class="num" style="padding:5px 0;text-align:right;color:var(--text-faint);width:48px">${(g.in / gGrand * 100).toFixed(1)}%</td>
+              </tr>`).join('')}
+          </table>
+          ${floors.length ? `<div style="margin-top:18px">${sec('สัดส่วนตามชั้นอาคาร')}</div>
+            <!-- แถวละชั้น แทนแถบเรียงแนวนอน เพราะป้ายกำกับของชั้นที่สัดส่วนน้อย
+                 จะถูกตัดหายเมื่อความกว้างคอลัมน์จำกัด -->
+            ${floors.map((f, i) => `<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
+                <div style="width:50px;font-size:10.5px;color:var(--text-dim);flex:none">
+                  ${f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor}</div>
+                <div style="flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden">
+                  <div style="width:${Math.max(2, f.share)}%;height:100%;border-radius:99px;
+                       background:var(--m-${['cyan','mint','amber','violet','rose','sky'][i % 6]}-c)"></div></div>
+                <!-- ไม่ใช้ tabular-nums ตรงนี้ — html2canvas เว้นช่องว่างระหว่างตัวเลขกับ % ผิดเพี้ยน -->
+                <div style="width:96px;text-align:right;font-size:10.5px;flex:none;white-space:nowrap">${f.share.toFixed(1)}%<span style="color:var(--text-faint)"> · ${f.gates} ประตู</span></div>
+              </div>`).join('')}
+` : ''}
+
+          <!-- กราฟวาดเองที่ความกว้างจริงของคอลัมน์นี้ (วัดตอนรันไทม์) ฟอนต์บนกราฟจึงไม่ถูกย่อ -->
+          <div id="rp-trend-box" style="display:none;margin-top:18px">
+            ${sec('แนวโน้มลูกค้าเข้ารายวัน', b && b.id !== a.id ? `${a.label} เทียบ ${b.label}` : a.label)}
+            <img id="rp-trend" alt="กราฟแนวโน้มลูกค้าเข้ารายวัน"
+                 style="display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)">
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+      <!-- ---------- ท้ายกระดาษ ---------- -->
+      <div style="margin-top:14px;padding-top:9px;border-top:1px solid var(--line);
+           display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:var(--text-faint);line-height:1.6">
+        <span>รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติ ตัวเลขอ้างอิงจากไฟล์ต้นฉบับโดยตรง</span>
+        <span>SBK Traffic Intelligence v${APP_VERSION} · ${docNo} · หน้า 2/${PAGES}</span>
+      </div>
+    </section>
+
+    <!-- ================= หน้า 3 : ข้อเสนอแนะ + แนวโน้ม + การรับรอง ================= -->
+    <section class="rp-page" style="${PAGE}">
+      ${runHead(3)}
+
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:26px">
+        <div style="min-width:0">
+          ${sec('ข้อเสนอแนะเชิงปฏิบัติการ', 'ประเด็นที่ควรดำเนินการในงวดถัดไป')}
+          <div style="border:1px solid var(--line);border-radius:10px;padding:13px 15px;background:var(--surface-2)">
+            ${recs.map((r, i) => `<div style="display:flex;gap:10px;${i ? 'margin-top:9px' : ''}">
+                <span style="flex:0 0 22px;height:22px;border-radius:7px;display:grid;place-items:center;
+                      background:var(--mint-a14, rgba(16,185,129,.14));color:var(--mint);font-size:11px;font-weight:700">${i + 1}</span>
+                <span style="font-size:12px;line-height:1.68">${r}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div style="min-width:0">
+          ${sec('นิยามและวิธีคำนวณ')}
+          <div style="font-size:10.5px;color:var(--text-dim);line-height:1.7">
+            • <b>ค่าเฉลี่ยต่อวัน</b> = ยอดรวม ÷ จำนวนวันที่มีข้อมูลจริง (${a.agg.days} วัน) ไม่ใช่จำนวนวันตามปฏิทิน<br>
+            • <b>ร้อยละการเปลี่ยนแปลง</b> เทียบด้วยค่าเฉลี่ยต่อวัน เพราะสองงวดอาจมีจำนวนวันไม่เท่ากัน<br>
+            • <b>ผู้อยู่ภายในศูนย์</b> = ยอดเข้าสะสม − ยอดออกสะสม ตั้งแต่ 10.00 น. (ค่าประมาณการ)<br>
+            • <b>ผู้ใช้ทางเชื่อม MRT</b> นับจากประตูที่ชื่อมีคำว่า MRT${a.agg.mrtGates.length ? ` (${a.agg.mrtGates.map(n => n.trim()).join(', ')})` : ''}<br>
+            • <b>วันหยุด</b> = เสาร์ อาทิตย์ และวันหยุดราชการตามปฏิทินไทย
+          </div>
           ${a.agg.wk.holiday.n && a.agg.wk.weekday.n ? `
-          <div style="margin-top:14px">${sec('วันธรรมดาเทียบวันหยุด')}</div>
+          <div style="margin-top:16px">${sec('วันธรรมดาเทียบวันหยุด', 'ลูกค้าเข้าเฉลี่ยต่อวัน')}</div>
           <table style="width:100%;font-size:10.5px;border-collapse:collapse">
             <tr style="border-bottom:1px solid var(--line-soft)">
               <td style="padding:6px 0;color:var(--text-dim)">วันธรรมดา (${a.agg.wk.weekday.n} วัน)</td>
@@ -4104,88 +4433,29 @@ function renderReport() {
       </div>
 
       <div style="flex:1"></div>
-      ${runHead(1).replace('border-bottom', 'border-top').replace('padding-bottom:8px;margin-bottom:13px', 'padding-top:8px;margin-top:13px')}
-    </section>
 
-    <!-- ================= หน้า 2 ================= -->
-    <section class="rp-page" style="${PAGE}">
-      ${runHead(2)}
-
-      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:24px">
-        <!-- ---------- คอลัมน์ซ้าย: บทวิเคราะห์ ---------- -->
-        <div>
-          ${sec('บทวิเคราะห์', 'สรุปจากตัวเลขในงวดรายงาน')}
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${analysis.slice(1).map((x, i) => `
-              <div style="display:flex;gap:10px">
-                <div style="flex:0 0 21px;height:21px;border-radius:7px;display:grid;place-items:center;
-                     background:var(--accent-a14);color:var(--accent);font-size:10.5px;font-weight:700">${i + 1}</div>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:11.8px;font-weight:700;margin-bottom:2px">${x.title}</div>
-                  <div style="font-size:11.3px;color:var(--text-dim);line-height:1.68">${x.body}</div>
-                </div>
-              </div>`).join('')}
-          </div>
-
-          <div style="margin-top:16px">${sec('ข้อเสนอแนะเชิงปฏิบัติการ')}</div>
-          <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface-2)">
-            ${recs.map((r, i) => `<div style="display:flex;gap:9px;${i ? 'margin-top:8px' : ''}">
-                <span style="color:var(--mint);font-weight:700;flex:0 0 auto">${i + 1}.</span>
-                <span style="font-size:11.3px;line-height:1.66">${r}</span>
-              </div>`).join('')}
-          </div>
-        </div>
-
-        <!-- ---------- คอลัมน์ขวา: ภาคผนวกรายประตูและรายชั้น ---------- -->
-        <div>
-          ${sec('จุดประตูที่มีผู้ใช้สูงสุด', `จากทั้งหมด ${a.agg.gates.length} จุด`)}
-          <table style="width:100%;font-size:10.5px;border-collapse:collapse">
-            ${topGates.map((g, i) => `
-              <tr style="border-bottom:1px solid var(--line-soft)">
-                <td style="padding:5px 0;color:var(--text-faint);width:16px">${i + 1}</td>
-                <td style="padding:5px 0;word-break:break-word">${g.name.trim()}</td>
-                <td class="num" style="padding:5px 0;text-align:right;font-weight:600;white-space:nowrap">${fmt(g.in)}</td>
-                <td class="num" style="padding:5px 0;text-align:right;color:var(--text-faint);width:44px">${(g.in / gGrand * 100).toFixed(1)}%</td>
-              </tr>`).join('')}
-          </table>
-          ${floors.length ? `<div style="margin-top:16px">${sec('สัดส่วนตามชั้นอาคาร')}</div>
-            <!-- แถวละชั้น แทนแถบเรียงแนวนอน เพราะป้ายกำกับของชั้นที่สัดส่วนน้อย
-                 จะถูกตัดหายเมื่อความกว้างคอลัมน์จำกัด -->
-            ${floors.map((f, i) => `<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
-                <div style="width:48px;font-size:10px;color:var(--text-dim);flex:none">
-                  ${f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor}</div>
-                <div style="flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden">
-                  <div style="width:${Math.max(2, f.share)}%;height:100%;border-radius:99px;
-                       background:var(--m-${['cyan','mint','amber','violet','rose','sky'][i % 6]}-c)"></div></div>
-                <div style="width:62px;text-align:right;font-size:10px;font-variant-numeric:tabular-nums;flex:none">
-                  ${f.share.toFixed(1)}% <span style="color:var(--text-faint)">· ${f.gates}</span></div>
-              </div>`).join('')}
-            <div style="font-size:9.5px;color:var(--text-faint);margin-top:4px">ตัวเลขหลังจุดคือจำนวนประตูของชั้นนั้น</div>` : ''}
-
-          <!-- ใช้ภาพจากกราฟบนหน้าจอโดยตรง จึงเป็นข้อมูลชุดเดียวกันเสมอ
-               ไม่ต้องวาดกราฟซ้ำด้วยโค้ดคนละชุดซึ่งเสี่ยงให้ตัวเลขไม่ตรงกัน
-               ใส่ src ทีหลัง เพราะตอน renderReport ทำงาน กราฟเพิ่งถูกสร้างในเฟรมเดียวกัน
-               ยังไม่ผ่าน layout ขนาด canvas จึงเป็น 0 และได้ภาพเปล่า -->
-          <div id="rp-trend-box" style="margin-top:16px;display:none">
-            ${sec('แนวโน้มผู้ใช้บริการรายวัน')}
-            <img id="rp-trend" alt="กราฟแนวโน้มผู้ใช้บริการรายวัน"
-                 style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)">
-          </div>
-        </div>
+      <!-- ---------- ช่องลงนามรับรอง ----------
+           เอกสารที่ต้องเสนอผู้บริหารต้องมีผู้รับผิดชอบลงนาม จึงแยกเป็นบล็อกชัดเจน
+           แทนการเป็นเส้นขีดเล็ก ๆ ในท้ายกระดาษแบบเดิม -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:16px">
+        ${['ผู้จัดทำ', 'ผู้ตรวจทาน', 'ผู้อนุมัติ'].map(r => `
+          <div style="text-align:center;font-size:10.5px;color:var(--text-dim)">
+            <div style="height:38px;border-bottom:1px dotted var(--text-faint);margin:0 18px"></div>
+            <div style="margin-top:6px">( ...................................................... )</div>
+            <div style="margin-top:3px;font-weight:600;color:var(--text)">${r}</div>
+            <div style="margin-top:2px">วันที่ ...... / ...... / ............</div>
+          </div>`).join('')}
       </div>
 
-      <div style="flex:1"></div>
-      <!-- ---------- ท้ายกระดาษ ---------- -->
-      <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--line);
+      <div style="margin-top:16px;padding-top:9px;border-top:1px solid var(--line);
            display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:var(--text-faint);line-height:1.6">
-        <div style="max-width:62%">
+        <div style="max-width:66%">
           รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติจากข้อมูลบันทึกยอดลูกค้าและยานพาหนะรายวัน
-          ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง มิได้ผ่านการปรับค่าใด ๆ<br>
-          ผู้จัดทำ ฝ่ายปฏิบัติการ · ผู้ตรวจทาน ____________________ · วันที่ ____ / ____ / ________
+          ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง มิได้ผ่านการปรับค่าใด ๆ
         </div>
         <div style="text-align:right">
           SBK Traffic Intelligence v${APP_VERSION}<br>
-          ${docNo} · หน้า 2/2
+          ${docNo} · หน้า 3/${PAGES}
         </div>
       </div>
     </section>
@@ -4195,6 +4465,7 @@ function renderReport() {
      เพราะ html2canvas อ่านจากขนาดจริงของ element ไม่ใช่ค่าที่ถูก transform) */
   fitReportSheet();
   refreshReportChart();
+  checkReportPages();
 
   $('#btn-pptx')?.addEventListener('click', exportPPTX);
   $('#btn-pdf')?.addEventListener('click', () => exportImage('pdf'));
@@ -4212,6 +4483,21 @@ function downloadBlob(blob, filename) {
 }
 
 /** จับภาพกราฟจาก canvas ที่วาดอยู่แล้ว เพื่อฝังลงสไลด์ */
+/* ข้อความแจ้งเมื่อส่งออกไม่สำเร็จ — แยกกรณี "โหลดไลบรารีไม่ได้" ออกจากข้อผิดพลาดอื่น
+   เพราะสองกรณีนี้ผู้ใช้ต้องทำคนละอย่าง: อย่างแรกเป็นเรื่องเครือข่าย ให้กดลองใหม่
+   ส่วนอย่างหลังเป็นข้อผิดพลาดของโปรแกรมที่กดกี่ครั้งก็ได้ผลเดิม */
+function exportErrorToast(e, what) {
+  console.error('[export]', e);
+  if (/โหลดไลบรารี/.test(e.message)) {
+    toast(`โหลดไลบรารีสำหรับ${what}ไม่สำเร็จ\n` +
+          `เครือข่ายนี้อาจปิดกั้นแหล่งดาวน์โหลด — กดปุ่มอีกครั้งเพื่อลองใหม่ ` +
+          `หรือเปิดไฟล์จากเครือข่ายอื่น (เช่น เชื่อมต่อผ่านมือถือ) แล้วลองอีกครั้ง\n` +
+          `รายละเอียด: ${e.message}`, 'error', 14000);
+  } else {
+    toast(`สร้างไฟล์${what}ไม่สำเร็จ: ${e.message}`, 'error', 9000);
+  }
+}
+
 function chartPNG(id) {
   try { return charts[id] ? charts[id].toBase64Image('image/png', 1) : null; } catch { return null; }
 }
@@ -4219,201 +4505,253 @@ function chartPNG(id) {
 async function exportPPTX() {
   const a = A(), b = B();
   if (!a) return toast('ยังไม่มีข้อมูล', 'warn');
-  if (typeof PptxGenJS === 'undefined') return toast('โหลดไลบรารี PowerPoint ไม่สำเร็จ — ตรวจการเชื่อมต่ออินเทอร์เน็ต', 'error');
-  const btn = $('#btn-pptx'); btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  const btn = $('#btn-pptx');
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   try {
-    /* ชุดสีของสไลด์ตั้งค่าตายตัว ไม่ดึงจากธีมหน้าจอ
-       เพื่อให้ไฟล์ที่ส่งออกหน้าตาเหมือนกันเสมอ ไม่ขึ้นกับว่าผู้ใช้เปิดโหมดไหนอยู่ */
-    const BG = '0B1120', CARD = '161F33', LINE = '2A3850',
-          CYAN = '22D3EE', MINT = '34D399', AMBER = 'FBBF24', ROSE = 'F87171',
-          TXT = 'E6EDF7', DIM = '93A4BF', FAINT = '6B7C96';
+    /* โหลดไลบรารีตอนนี้ ไม่ใช่ตอนเปิดแอป — ไล่ลอง CDN สำรองให้เองถ้าเจ้าแรกถูกบล็อก */
+    await ensureLib('pptx', (lb, host) => { btn.textContent = `กำลังโหลด ${lb}...`; });
+    btn.textContent = 'กำลังสร้าง...';
+
+    /* ชุดสีของสไลด์ตั้งค่าตายตัวเป็นโทนสว่าง ให้เข้าชุดกับรายงาน A4 และ PDF
+       ไม่ดึงจากธีมหน้าจอ เพื่อให้ไฟล์ที่ส่งออกหน้าตาเหมือนกันเสมอ
+       และเอกสารนำเสนอโทนสว่างพิมพ์ลงกระดาษได้โดยไม่กินหมึกทั้งแผ่น */
+    const BG    = 'FFFFFF',   // พื้นสไลด์
+          PANEL = 'F4F7FB',   // พื้นการ์ด/กล่อง
+          LINE  = 'DCE4EF',   // เส้นขอบ
+          INK   = '16202E',   // ตัวอักษรหลัก
+          DIM   = '5E6E82',   // ตัวอักษรรอง
+          FAINT = '8C9AAC',   // ตัวอักษรจาง
+          TEAL  = '0E8C8C',   // สีหลัก (ตรงกับ --accent ของแอป)
+          MINT  = '0F9D6B', AMBER = 'C47F09', ROSE = 'D4495C',
+          VIOLET= '7C4DD6', SKY   = '2B7FC4';
+    const PALETTE = [TEAL, SKY, MINT, VIOLET, AMBER, ROSE];
+    /* จับคู่ชื่อสีของตัววัดบนหน้าจอเข้ากับค่าสีของสไลด์ เพื่อให้การ์ดใบเดียวกัน
+       เป็นสีเดียวกันทั้งบนแดชบอร์ด บนรายงาน A4 และบนสไลด์ */
+    const METRIC_COLOR = { cyan: TEAL, sky: SKY, mint: MINT, violet: VIOLET, amber: AMBER, rose: ROSE };
     const F = 'Tahoma';
     const analysis = buildReportAnalysis(a, b);
     const recs = buildRecommendations(a, b);
     const now = new Date();
-    const docNo = `SBK-TR-${a.year || ''}${String(a.month || 0).padStart(2, '0')}`;
+    const docNo = `SBK-TR-${a.year || now.getFullYear() + 543}${String(a.month || 0).padStart(2, '0')}`;
 
     const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_16x9';
+    pptx.layout = 'LAYOUT_16x9';                 // 10 × 5.63 นิ้ว
     pptx.author = 'SBK Traffic Intelligence';
     pptx.company = 'ศูนย์การค้าซีคอน บางแค';
     pptx.title = `รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ ${a.label}`;
 
-    /* แม่แบบสไลด์เนื้อหา — แถบหัวเรื่องด้านบนและแถบท้ายสไลด์ */
+    /* แม่แบบสไลด์เนื้อหา — แถบสีบาง ๆ ด้านบนและแถบท้ายสไลด์
+       ใช้โครงเดียวกับหัว/ท้ายกระดาษของรายงาน A4 เพื่อให้สองรูปแบบดูเป็นชุดเดียวกัน */
     pptx.defineSlideMaster({
       title: 'BODY', background: { color: BG },
       objects: [
-        { rect: { x: 0, y: 0, w: '100%', h: 0.055, fill: { color: CYAN } } },
-        { line: { x: 0.45, y: 5.06, w: 9.1, h: 0, line: { color: LINE, width: 1 } } },
+        { rect: { x: 0, y: 0, w: '100%', h: 0.05, fill: { color: TEAL } } },
+        { line: { x: 0.45, y: 5.05, w: 9.1, h: 0, line: { color: LINE, width: 1 } } },
         { text: { text: 'ศูนย์การค้าซีคอน บางแค · รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ',
-                  options: { x: 0.45, y: 5.1, w: 6.2, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F } } },
-        { text: { text: docNo, options: { x: 6.7, y: 5.1, w: 2.85, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, align: 'right' } } },
+                  options: { x: 0.45, y: 5.09, w: 6.2, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F } } },
+        { text: { text: docNo, options: { x: 6.7, y: 5.09, w: 2.85, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, align: 'right' } } },
       ],
     });
 
-    /** หัวเรื่องมาตรฐานของแต่ละสไลด์ */
+    /** หัวเรื่องมาตรฐานของแต่ละสไลด์ — ขีดสีสั้น ๆ หน้าหัวข้อ เหมือนหัวข้อย่อยในรายงาน */
     const head = (s2, title, sub) => {
-      s2.addText(title, { x: 0.45, y: 0.3, w: 9.1, h: 0.42, fontSize: 20, bold: true, color: TXT, fontFace: F });
-      if (sub) s2.addText(sub, { x: 0.45, y: 0.72, w: 9.1, h: 0.3, fontSize: 10.5, color: CYAN, fontFace: F });
-      s2.addShape(pptx.ShapeType.rect, { x: 0.45, y: 1.03, w: 0.75, h: 0.035, fill: { color: CYAN } });
+      s2.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 0.34, w: 0.055, h: 0.3, fill: { color: TEAL }, rectRadius: 0.03 });
+      s2.addText(title, { x: 0.62, y: 0.28, w: 8.9, h: 0.42, fontSize: 19, bold: true, color: INK, fontFace: F });
+      if (sub) s2.addText(sub, { x: 0.62, y: 0.71, w: 8.9, h: 0.28, fontSize: 10, color: DIM, fontFace: F });
+    };
+
+    /** การ์ดพื้นอ่อนขอบบาง — รูปทรงเดียวกับการ์ดในรายงาน */
+    const card = (s2, x, y, w, h, topColor) => {
+      s2.addShape(pptx.ShapeType.roundRect, { x, y, w, h, fill: { color: PANEL }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
+      if (topColor) s2.addShape(pptx.ShapeType.rect, { x, y, w, h: 0.04, fill: { color: topColor } });
     };
 
     // ---------- 1. ปก ----------
-    let s1 = pptx.addSlide();
+    const s1 = pptx.addSlide();
     s1.background = { color: BG };
-    s1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.09, fill: { color: CYAN } });
-    s1.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.72, w: 0.14, h: 1.75, fill: { color: MINT } });
+    // แถบสีด้านซ้ายแทนพื้นเข้มทั้งแผ่น ดูเรียบและพิมพ์ออกมาสวยกว่า
+    s1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.34, h: '100%', fill: { color: TEAL } });
+    s1.addShape(pptx.ShapeType.rect, { x: 0.34, y: 0, w: 0.07, h: '100%', fill: { color: MINT } });
     s1.addText('ศูนย์การค้าซีคอน บางแค · ฝ่ายปฏิบัติการ',
-      { x: 0.95, y: 1.68, w: 8.4, h: 0.3, fontSize: 11, color: DIM, fontFace: F, charSpacing: 1 });
+      { x: 0.95, y: 1.52, w: 8.4, h: 0.3, fontSize: 11, color: DIM, fontFace: F, charSpacing: 1 });
     s1.addText('รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ',
-      { x: 0.95, y: 2.0, w: 8.4, h: 0.62, fontSize: 30, bold: true, color: TXT, fontFace: F });
+      { x: 0.95, y: 1.85, w: 8.4, h: 0.66, fontSize: 31, bold: true, color: INK, fontFace: F });
+    s1.addShape(pptx.ShapeType.rect, { x: 0.95, y: 2.56, w: 1.1, h: 0.045, fill: { color: TEAL } });
     s1.addText(`ประจำงวด ${a.label}${b ? `   เปรียบเทียบกับ ${b.label}` : ''}`,
-      { x: 0.95, y: 2.66, w: 8.4, h: 0.4, fontSize: 16, color: CYAN, fontFace: F });
+      { x: 0.95, y: 2.72, w: 8.4, h: 0.4, fontSize: 16, color: TEAL, bold: true, fontFace: F });
     s1.addText(`${b ? compareKind(a, b) + '   ·   ' : ''}ข้อมูล ${a.agg.days} วัน`,
-      { x: 0.95, y: 3.06, w: 8.4, h: 0.3, fontSize: 11.5, color: DIM, fontFace: F });
+      { x: 0.95, y: 3.12, w: 8.4, h: 0.3, fontSize: 11.5, color: DIM, fontFace: F });
     s1.addText(`เลขที่เอกสาร ${docNo}\nวันที่ออกรายงาน ${now.toLocaleDateString('th-TH')}`,
-      { x: 0.95, y: 3.95, w: 8.4, h: 0.6, fontSize: 10, color: FAINT, fontFace: F, lineSpacingMultiple: 1.3 });
+      { x: 0.95, y: 4.05, w: 8.4, h: 0.6, fontSize: 10, color: FAINT, fontFace: F, lineSpacingMultiple: 1.3 });
 
     // ---------- 2. บทสรุปผู้บริหาร ----------
-    let s2 = pptx.addSlide({ masterName: 'BODY' });
+    const s2 = pptx.addSlide({ masterName: 'BODY' });
     head(s2, 'บทสรุปผู้บริหาร', `${a.label}${b ? ` เทียบกับ ${b.label}` : ''}`);
-    s2.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.25, w: 9.1, h: 1.3, fill: { color: CARD }, line: { color: CYAN, width: 1 }, rectRadius: 0.06 });
+    s2.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.12, w: 9.1, h: 1.26, fill: { color: 'E8F4F4' }, line: { color: TEAL, width: 1 }, rectRadius: 0.05 });
+    s2.addShape(pptx.ShapeType.rect, { x: 0.45, y: 1.12, w: 0.05, h: 1.26, fill: { color: TEAL } });
     s2.addText(analysis[0] ? analysis[0].body : '—',
-      { x: 0.68, y: 1.4, w: 8.65, h: 1.0, fontSize: 11.5, color: TXT, fontFace: F, valign: 'top', lineSpacingMultiple: 1.25 });
-    // แถวตัวเลขสำคัญ
-    ['cIn', 'vIn24', 'mc', 'dlv'].forEach((k, i) => {
+      { x: 0.7, y: 1.24, w: 8.65, h: 1.02, fontSize: 11.5, color: INK, fontFace: F, valign: 'top', lineSpacingMultiple: 1.25 });
+    // แถวตัวเลขสำคัญ — ชุดเดียวกับการ์ดบนรายงาน A4
+    const kpis = ['cIn', 'vIn24', 'mc', 'dlv', 'mrt'];
+    kpis.forEach((k, i) => {
       const m = METRIC_BY_KEY[k];
       const d = b ? delta(a.agg.avg[k], b.agg.avg[k]) : null;
-      const x = 0.45 + i * 2.31;
-      s2.addShape(pptx.ShapeType.roundRect, { x, y: 2.78, w: 2.12, h: 1.5, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.06 });
-      s2.addShape(pptx.ShapeType.rect, { x, y: 2.78, w: 2.12, h: 0.045, fill: { color: [CYAN, MINT, AMBER, ROSE][i] } });
-      s2.addText(m.label, { x: x + 0.15, y: 2.92, w: 1.85, h: 0.26, fontSize: 10, color: DIM, fontFace: F });
-      s2.addText(fmt(a.agg.total[k]), { x: x + 0.15, y: 3.18, w: 1.85, h: 0.45, fontSize: 21, bold: true, color: [CYAN, MINT, AMBER, ROSE][i], fontFace: F });
-      s2.addText(`เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))} ${m.unit}/วัน`, { x: x + 0.15, y: 3.62, w: 1.85, h: 0.24, fontSize: 8.5, color: FAINT, fontFace: F });
-      s2.addText(d == null ? '—' : pct(d), { x: x + 0.15, y: 3.87, w: 1.85, h: 0.28, fontSize: 11, bold: true, color: d == null ? DIM : (d > 0 ? MINT : ROSE), fontFace: F });
+      const w = 1.75, gap = 0.1, x = 0.45 + i * (w + gap);
+      const col = METRIC_COLOR[m.color] || PALETTE[i % PALETTE.length];
+      card(s2, x, 2.62, w, 1.62, col);
+      s2.addText(m.label, { x: x + 0.13, y: 2.76, w: w - 0.26, h: 0.26, fontSize: 9, color: DIM, fontFace: F });
+      s2.addText(fmt(a.agg.total[k]), { x: x + 0.13, y: 3.02, w: w - 0.26, h: 0.44, fontSize: 19, bold: true, color: col, fontFace: F });
+      s2.addText(`เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))} ${m.unit}/วัน`,
+        { x: x + 0.13, y: 3.46, w: w - 0.26, h: 0.24, fontSize: 8, color: FAINT, fontFace: F });
+      s2.addText(d == null ? '—' : pct(d),
+        { x: x + 0.13, y: 3.72, w: w - 0.26, h: 0.28, fontSize: 11, bold: true,
+          color: d == null ? FAINT : (d > 0 ? MINT : ROSE), fontFace: F });
     });
-    s2.addText(`ค่าเฉลี่ยต่อวันคำนวณจากจำนวนวันที่มีข้อมูลจริง ${a.agg.days} วัน ไม่ใช่จำนวนวันตามปฏิทิน`,
-      { x: 0.45, y: 4.45, w: 9.1, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
+    s2.addText(`ค่าเฉลี่ยต่อวันคำนวณจากจำนวนวันที่มีข้อมูลจริง ${a.agg.days} วัน ไม่ใช่จำนวนวันตามปฏิทิน` +
+               (a.agg.total.mrt ? ` · ยอด MRT นับจากประตูสะพานเชื่อม MRT คิดเป็นร้อยละ ${a.agg.mrtShare.toFixed(1)} ของผู้เข้าศูนย์` : ''),
+      { x: 0.45, y: 4.42, w: 9.1, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
     // ---------- 3. ตารางสถิติ ----------
-    let s3 = pptx.addSlide({ masterName: 'BODY' });
+    const s3 = pptx.addSlide({ masterName: 'BODY' });
     head(s3, 'ตารางสรุปสถิติเปรียบเทียบ', b ? `${a.label} เทียบ ${b.label}` : a.label);
+    const th = t => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: TEAL }, align: 'right' } });
     const rows = [[
-      { text: 'ประเภท', options: { bold: true, color: DIM } },
-      { text: 'ยอดรวม', options: { bold: true, color: DIM, align: 'right' } },
-      { text: 'เฉลี่ย/วัน', options: { bold: true, color: DIM, align: 'right' } },
-      { text: b ? `เฉลี่ย/วัน ${b.label}` : 'ฐาน', options: { bold: true, color: DIM, align: 'right' } },
-      { text: 'เปลี่ยนแปลง', options: { bold: true, color: DIM, align: 'right' } },
+      { text: 'ประเภท', options: { bold: true, color: 'FFFFFF', fill: { color: TEAL } } },
+      th('ยอดรวม'), th('เฉลี่ย/วัน'),
+      th(b ? `ยอดรวม ${b.label}` : 'ฐาน'), th(b ? `เฉลี่ย/วัน ${b.label}` : '—'),
+      th('เปลี่ยนแปลง'),
     ]];
-    METRICS.forEach(m => {
+    METRICS.forEach((m, i) => {
       const d = b ? delta(a.agg.avg[m.key], b.agg.avg[m.key]) : null;
+      const zebra = i % 2 ? { fill: { color: PANEL } } : {};
       rows.push([
-        m.label,
-        { text: fmt(a.agg.total[m.key]), options: { align: 'right' } },
-        { text: fmt(Math.round(a.agg.avg[m.key])), options: { align: 'right' } },
-        { text: b ? fmt(Math.round(b.agg.avg[m.key])) : '—', options: { align: 'right' } },
-        { text: d == null ? '—' : pct(d), options: { align: 'right', bold: true, color: d == null ? DIM : (d > 0 ? MINT : ROSE) } },
+        { text: m.label, options: { ...zebra, color: INK } },
+        { text: fmt(a.agg.total[m.key]), options: { ...zebra, align: 'right', color: INK } },
+        { text: fmt(Math.round(a.agg.avg[m.key])), options: { ...zebra, align: 'right', color: INK } },
+        { text: b ? fmt(b.agg.total[m.key]) : '—', options: { ...zebra, align: 'right', color: DIM } },
+        { text: b ? fmt(Math.round(b.agg.avg[m.key])) : '—', options: { ...zebra, align: 'right', color: DIM } },
+        { text: d == null ? '—' : pct(d), options: { ...zebra, align: 'right', bold: true, color: d == null ? FAINT : (d > 0 ? MINT : ROSE) } },
       ]);
     });
-    s3.addTable(rows, { x: 0.45, y: 1.3, w: 9.1, fontSize: 11, color: TXT, fontFace: F,
-      fill: { color: CARD }, border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.34 });
+    s3.addTable(rows, { x: 0.45, y: 1.15, w: 9.1, fontSize: 10.5, color: INK, fontFace: F,
+      border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.31, valign: 'middle' });
+    s3.addText('ร้อยละการเปลี่ยนแปลงคำนวณจากค่าเฉลี่ยต่อวัน ไม่ใช่ยอดรวม เพราะสองงวดอาจมีจำนวนวันไม่เท่ากัน',
+      { x: 0.45, y: 4.62, w: 9.1, h: 0.3, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
     // ---------- 4. แนวโน้มรายวัน ----------
-    let s4 = pptx.addSlide({ masterName: 'BODY' });
+    const s4 = pptx.addSlide({ masterName: 'BODY' });
     head(s4, 'แนวโน้มรายวัน', 'จำนวนผู้ใช้บริการเข้าศูนย์รายวัน');
     const trendImg = chartPNG('trend');
-    if (trendImg) s4.addImage({ data: trendImg, x: 0.45, y: 1.3, w: 9.1, h: 3.5 });
-    else s4.addText('(ไม่สามารถแนบกราฟได้)', { x: 0.45, y: 2.6, w: 9.1, h: 0.4, fontSize: 12, color: DIM, fontFace: F });
+    if (trendImg) {
+      s4.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.12, w: 9.1, h: 3.6, fill: { color: PANEL }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
+      s4.addImage({ data: trendImg, x: 0.62, y: 1.28, w: 8.76, h: 3.28 });
+    } else {
+      s4.addText('(ไม่สามารถแนบกราฟได้)', { x: 0.45, y: 2.5, w: 9.1, h: 0.4, fontSize: 12, color: DIM, fontFace: F, align: 'center' });
+    }
 
     // ---------- 5. พฤติกรรมช่วงเวลา ----------
-    let s5 = pptx.addSlide({ masterName: 'BODY' });
+    const s5 = pptx.addSlide({ masterName: 'BODY' });
     head(s5, 'พฤติกรรมตามช่วงเวลา', 'ค่าเฉลี่ยต่อวัน');
     const occImg = chartPNG('occ') || chartPNG('hrCust');
-    if (occImg) s5.addImage({ data: occImg, x: 0.45, y: 1.28, w: 5.75, h: 2.9 });
+    if (occImg) {
+      s5.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.12, w: 5.72, h: 2.98, fill: { color: PANEL }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
+      s5.addImage({ data: occImg, x: 0.6, y: 1.24, w: 5.42, h: 2.74 });
+    }
     const pk = a.agg.peaks, op = a.agg.occPeak;
-    [['ผู้เข้าศูนย์สูงสุด', pk.cIn, 'คน/ชม.', CYAN],
+    [['ผู้เข้าศูนย์สูงสุด', pk.cIn, 'คน/ชม.', TEAL],
      ['ผู้อยู่ภายในสูงสุด', op, 'คน', AMBER],
      ['รถยนต์เข้าสูงสุด', pk.vIn, 'คัน/ชม.', MINT],
-     ['รถยนต์ออกสูงสุด', pk.vOut, 'คัน/ชม.', ROSE]].forEach(([l, v, u, col], i) => {
-      const y = 1.28 + i * 0.74;
-      s5.addShape(pptx.ShapeType.roundRect, { x: 6.42, y, w: 3.13, h: 0.62, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
-      s5.addShape(pptx.ShapeType.rect, { x: 6.42, y, w: 0.05, h: 0.62, fill: { color: col } });
-      s5.addText(l, { x: 6.6, y: y + 0.05, w: 2.85, h: 0.24, fontSize: 9, color: DIM, fontFace: F });
+     ['รถยนต์ออกสูงสุด', pk.vOut, 'คัน/ชม.', VIOLET]].forEach(([l, v, u, col], i) => {
+      const y = 1.12 + i * 0.76;
+      card(s5, 6.4, y, 3.15, 0.64);
+      s5.addShape(pptx.ShapeType.rect, { x: 6.4, y, w: 0.05, h: 0.64, fill: { color: col } });
+      s5.addText(l, { x: 6.6, y: y + 0.06, w: 2.85, h: 0.24, fontSize: 9, color: DIM, fontFace: F });
       s5.addText(v.empty ? '—' : `${v.label} น.   ${fmt(Math.round(v.value))} ${u}`,
-        { x: 6.6, y: y + 0.28, w: 2.85, h: 0.3, fontSize: 11.5, bold: true, color: col, fontFace: F });
+        { x: 6.6, y: y + 0.29, w: 2.85, h: 0.3, fontSize: 11.5, bold: true, color: col, fontFace: F });
     });
     const tsec = analysis.find(x => x.title === 'พฤติกรรมตามช่วงเวลา');
-    if (tsec) s5.addText(tsec.body, { x: 0.45, y: 4.3, w: 9.1, h: 0.66, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
+    if (tsec) s5.addText(tsec.body, { x: 0.45, y: 4.22, w: 9.1, h: 0.72, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
 
     // ---------- 6. จุดเข้า-ออก และชั้นอาคาร ----------
-    let s6 = pptx.addSlide({ masterName: 'BODY' });
+    const s6 = pptx.addSlide({ masterName: 'BODY' });
     head(s6, 'จุดเข้า-ออกและการกระจายตัว', `${a.agg.gates.length} จุดประตู`);
     const gTop = a.agg.gates.slice().sort((x, y) => y.in - x.in).slice(0, 8);
     const gGrand = a.agg.gates.reduce((s7, g) => s7 + g.in, 0) || 1;
     s6.addTable([[
-      { text: 'จุดประตู', options: { bold: true, color: DIM } },
-      { text: 'ขาเข้า', options: { bold: true, color: DIM, align: 'right' } },
-      { text: 'สัดส่วน', options: { bold: true, color: DIM, align: 'right' } },
-    ], ...gTop.map(g => [g.name.trim(),
-      { text: fmt(g.in), options: { align: 'right' } },
-      { text: (g.in / gGrand * 100).toFixed(1) + '%', options: { align: 'right' } }])],
-      { x: 0.45, y: 1.3, w: 5.75, fontSize: 10, color: TXT, fontFace: F,
-        fill: { color: CARD }, border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.3 });
+      { text: 'จุดประตู', options: { bold: true, color: 'FFFFFF', fill: { color: TEAL } } },
+      { text: 'ขาเข้า', options: { bold: true, color: 'FFFFFF', fill: { color: TEAL }, align: 'right' } },
+      { text: 'สัดส่วน', options: { bold: true, color: 'FFFFFF', fill: { color: TEAL }, align: 'right' } },
+    ], ...gTop.map((g, i) => {
+      const zebra = i % 2 ? { fill: { color: PANEL } } : {};
+      return [
+        { text: g.name.trim(), options: { ...zebra, color: INK } },
+        { text: fmt(g.in), options: { ...zebra, align: 'right', color: INK } },
+        { text: (g.in / gGrand * 100).toFixed(1) + '%', options: { ...zebra, align: 'right', color: DIM } },
+      ];
+    })], { x: 0.45, y: 1.15, w: 5.72, fontSize: 9.5, color: INK, fontFace: F,
+      border: { type: 'solid', color: LINE, pt: 1 }, rowH: 0.3, valign: 'middle' });
+
     const fl = (a.agg.floors || []).slice().sort((x, y) => y.in - x.in);
     if (fl.length) {
-      s6.addText('สัดส่วนตามชั้นอาคาร', { x: 6.42, y: 1.28, w: 3.13, h: 0.28, fontSize: 11, bold: true, color: TXT, fontFace: F });
+      s6.addText('สัดส่วนตามชั้นอาคาร', { x: 6.4, y: 1.15, w: 3.15, h: 0.28, fontSize: 11, bold: true, color: INK, fontFace: F });
       fl.slice(0, 6).forEach((f, i) => {
-        const y = 1.62 + i * 0.47, col = [CYAN, MINT, AMBER, ROSE, '-A78BFA'.slice(1), '38BDF8'][i % 6];
-        s6.addText(f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor, { x: 6.42, y, w: 0.95, h: 0.26, fontSize: 10, color: DIM, fontFace: F });
-        s6.addShape(pptx.ShapeType.rect, { x: 7.35, y: y + 0.07, w: Math.max(0.05, 1.6 * (f.share / 100)), h: 0.14, fill: { color: col } });
-        s6.addText(f.share.toFixed(1) + '%', { x: 9.0, y, w: 0.55, h: 0.26, fontSize: 9.5, color: TXT, fontFace: F, align: 'right' });
+        const y = 1.5 + i * 0.44, col = PALETTE[i % PALETTE.length];
+        s6.addText(f.floor === 'อื่น ๆ' ? f.floor : 'ชั้น ' + f.floor,
+          { x: 6.4, y, w: 0.85, h: 0.26, fontSize: 9.5, color: DIM, fontFace: F });
+        s6.addShape(pptx.ShapeType.roundRect, { x: 7.25, y: y + 0.08, w: 1.5, h: 0.12, fill: { color: LINE }, rectRadius: 0.06 });
+        s6.addShape(pptx.ShapeType.roundRect, { x: 7.25, y: y + 0.08, w: Math.max(0.08, 1.5 * (f.share / 100)), h: 0.12, fill: { color: col }, rectRadius: 0.06 });
+        // กล่องต้องกว้างพอให้ "100.0%" อยู่บรรทัดเดียว ไม่งั้น PowerPoint จะตัดบรรทัดให้เอง
+        s6.addText(f.share.toFixed(1) + '%', { x: 8.8, y, w: 0.75, h: 0.26, fontSize: 9, color: INK, fontFace: F, align: 'right' });
       });
     }
     const gsec = analysis.find(x => x.title === 'จุดเข้า-ออกและการกระจายตัว');
-    if (gsec) s6.addText(gsec.body, { x: 0.45, y: 4.28, w: 9.1, h: 0.7, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
+    if (gsec) s6.addText(gsec.body, { x: 0.45, y: 4.2, w: 9.1, h: 0.76, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.2 });
 
     // ---------- 7. บทวิเคราะห์ ----------
-    let s7 = pptx.addSlide({ masterName: 'BODY' });
+    const s7 = pptx.addSlide({ masterName: 'BODY' });
     head(s7, 'บทวิเคราะห์', 'สรุปจากข้อมูลในงวดรายงาน');
-    const body = analysis.slice(1, 5);
-    body.forEach((x, i) => {
-      const y = 1.28 + i * 0.93;
-      s7.addShape(pptx.ShapeType.roundRect, { x: 0.45, y, w: 0.3, h: 0.3, fill: { color: CYAN }, rectRadius: 0.05 });
-      s7.addText(String(i + 1), { x: 0.45, y, w: 0.3, h: 0.3, fontSize: 11, bold: true, color: BG, fontFace: F, align: 'center', valign: 'middle' });
-      s7.addText(x.title, { x: 0.88, y: y - 0.02, w: 8.65, h: 0.26, fontSize: 11.5, bold: true, color: TXT, fontFace: F });
-      s7.addText(x.body, { x: 0.88, y: y + 0.24, w: 8.65, h: 0.64, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.18 });
+    analysis.slice(1, 5).forEach((x, i) => {
+      const y = 1.12 + i * 0.95;
+      s7.addShape(pptx.ShapeType.roundRect, { x: 0.45, y, w: 0.3, h: 0.3, fill: { color: 'E8F4F4' }, line: { color: TEAL, width: 0.75 }, rectRadius: 0.05 });
+      s7.addText(String(i + 1), { x: 0.45, y, w: 0.3, h: 0.3, fontSize: 11, bold: true, color: TEAL, fontFace: F, align: 'center', valign: 'middle' });
+      s7.addText(x.title, { x: 0.88, y: y - 0.02, w: 8.65, h: 0.26, fontSize: 11.5, bold: true, color: INK, fontFace: F });
+      s7.addText(x.body, { x: 0.88, y: y + 0.24, w: 8.65, h: 0.66, fontSize: 9.5, color: DIM, fontFace: F, valign: 'top', lineSpacingMultiple: 1.18 });
     });
 
     // ---------- 8. ข้อเสนอแนะ ----------
-    let s8 = pptx.addSlide({ masterName: 'BODY' });
+    const s8 = pptx.addSlide({ masterName: 'BODY' });
     head(s8, 'ข้อเสนอแนะเชิงปฏิบัติการ', 'ประเด็นที่ควรดำเนินการในงวดถัดไป');
     recs.slice(0, 5).forEach((r, i) => {
-      const y = 1.3 + i * 0.72;
-      s8.addShape(pptx.ShapeType.roundRect, { x: 0.45, y, w: 9.1, h: 0.62, fill: { color: CARD }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
-      s8.addShape(pptx.ShapeType.rect, { x: 0.45, y, w: 0.05, h: 0.62, fill: { color: MINT } });
-      s8.addText(`${i + 1}.`, { x: 0.62, y: y + 0.16, w: 0.3, h: 0.3, fontSize: 11, bold: true, color: MINT, fontFace: F });
-      s8.addText(r, { x: 0.95, y: y + 0.08, w: 8.45, h: 0.48, fontSize: 10, color: TXT, fontFace: F, valign: 'middle', lineSpacingMultiple: 1.15 });
+      const y = 1.14 + i * 0.73;
+      card(s8, 0.45, y, 9.1, 0.63);
+      s8.addShape(pptx.ShapeType.rect, { x: 0.45, y, w: 0.05, h: 0.63, fill: { color: MINT } });
+      s8.addText(`${i + 1}`, { x: 0.62, y: y + 0.17, w: 0.26, h: 0.3, fontSize: 11, bold: true, color: MINT, fontFace: F });
+      s8.addText(r, { x: 0.92, y: y + 0.08, w: 8.5, h: 0.48, fontSize: 10, color: INK, fontFace: F, valign: 'middle', lineSpacingMultiple: 1.15 });
     });
     s8.addText('รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติจากข้อมูลบันทึกยอดรายวัน ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง',
-      { x: 0.45, y: 4.78, w: 9.1, h: 0.26, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
+      { x: 0.45, y: 4.76, w: 9.1, h: 0.26, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
     await pptx.writeFile({ fileName: `${docNo}_${a.label.replace(/[\s.]/g, '')}.pptx` });
     toast('สร้างไฟล์นำเสนอเรียบร้อย · 8 สไลด์', 'ok');
   } catch (e) {
-    console.error(e); toast('สร้าง PowerPoint ไม่สำเร็จ: ' + e.message, 'error');
+    exportErrorToast(e, 'สไลด์นำเสนอ');
   } finally {
-    btn.disabled = false; btn.innerHTML = '<svg><use href="#i-slides"/></svg>ดาวน์โหลด .pptx';
+    btn.disabled = false;
+    btn.innerHTML = '<svg><use href="#i-slides"/></svg>ดาวน์โหลด .pptx';
   }
 }
 
 async function exportImage(kind) {
   const a = A();
   if (!a) return toast('ยังไม่มีข้อมูล', 'warn');
-  if (typeof html2canvas === 'undefined') return toast('โหลดไลบรารีจับภาพไม่สำเร็จ', 'error');
   const btn = kind === 'pdf' ? $('#btn-pdf') : $('#btn-png');
   if (!btn) return;
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   try {
+    await ensureLib('h2c', lb => { btn.textContent = `กำลังโหลด ${lb}...`; });
+    if (kind === 'pdf') await ensureLib('jspdf', lb => { btn.textContent = `กำลังโหลด ${lb}...`; });
+    btn.textContent = 'กำลังสร้าง...';
     const sheet = $('#report-sheet');
     if (!sheet) throw new Error('ยังไม่มีรายงานให้บันทึก — เปิดหน้า "รายงาน" แล้วรอให้ข้อมูลโหลดเสร็จก่อน');
     /* จับภาพ "ทีละหน้า" ไม่ใช่ทั้งแผ่นรวด
@@ -4421,32 +4759,35 @@ async function exportImage(kind) {
        บรรทัด pdf.addImage(..., Math.min(h, ...)) จะ "ตัดท้ายทิ้ง" เงียบ ๆ
        ตอนนี้แต่ละ .rp-page ถูกออกแบบให้พอดี A4 แนวนอนอยู่แล้ว จึงจับแยกหน้าได้ตรง ๆ */
     await awaitReportChart();
+    // ภาพกราฟเพิ่งถูกใส่ ความสูงหน้า 3 อาจเปลี่ยน — ตรวจซ้ำก่อนจับภาพ
+    checkReportPages();
     const pages = [...sheet.querySelectorAll('.rp-page')];
     if (!pages.length) throw new Error('ไม่พบหน้ารายงาน');
     const bg = cssVar('--surface');
     const shots = [];
     for (let i = 0; i < pages.length; i++) {
       btn.textContent = `กำลังสร้าง... (${i + 1}/${pages.length})`;
-      shots.push(await html2canvas(pages[i], { scale: 2, backgroundColor: bg, useCORS: true, logging: false }));
+      shots.push(await html2canvas(pages[i], {
+        scale: 2, backgroundColor: bg, useCORS: true, logging: false,
+        width: pages[i].offsetWidth, height: pages[i].offsetHeight,
+      }));
     }
     const name = `SBK_Traffic_${a.label.replace(/[\s.]/g, '')}`;
 
     if (kind === 'png') {
-      /* ต่อทุกหน้าเป็นภาพเดียวแนวตั้ง เพื่อให้ส่งต่อในแชตได้ครบในไฟล์เดียว
-         ใช้ Blob แทน data: URL — ภาพ 2x แบบ data URL ยาวหลายเมกะไบต์
+      /* แยกเป็นไฟล์ละหน้า — ภาพเดียวที่ต่อกันยาวเหยียดซูมอ่านในมือถือลำบาก
+         และนำไปแปะในสไลด์หรือเอกสารอื่นต่อไม่ได้
+         ใช้ Blob แทน data: URL เพราะภาพ 2x แบบ data URL ยาวหลายเมกะไบต์
          ซึ่งบางเบราว์เซอร์ปฏิเสธเงียบ ๆ */
-      const gap = 24;
-      const w = Math.max(...shots.map(c => c.width));
-      const h = shots.reduce((s2, c) => s2 + c.height, 0) + gap * (shots.length - 1);
-      const out = document.createElement('canvas');
-      out.width = w; out.height = h;
-      const ctx = out.getContext('2d');
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-      let y = 0;
-      for (const c of shots) { ctx.drawImage(c, Math.round((w - c.width) / 2), y); y += c.height + gap; }
-      const blob = await new Promise(res => out.toBlob(res, 'image/png'));
-      if (!blob) throw new Error('แปลงภาพไม่สำเร็จ');
-      downloadBlob(blob, name + '.png');
+      for (let i = 0; i < shots.length; i++) {
+        btn.textContent = `กำลังบันทึก... (${i + 1}/${shots.length})`;
+        const blob = await new Promise(res => shots[i].toBlob(res, 'image/png'));
+        if (!blob) throw new Error(`แปลงภาพหน้า ${i + 1} ไม่สำเร็จ`);
+        downloadBlob(blob, `${name}_หน้า${i + 1}.png`);
+        /* เว้นจังหวะระหว่างไฟล์ — เบราว์เซอร์จะบล็อกการดาวน์โหลดหลายไฟล์
+           ที่ยิงพร้อมกันในเสี้ยววินาที (กันเว็บสแปมไฟล์) */
+        if (i < shots.length - 1) await new Promise(r => setTimeout(r, 700));
+      }
     } else {
       const { jsPDF } = window.jspdf || {};
       if (!jsPDF) throw new Error('ไลบรารี PDF ยังไม่พร้อม');
@@ -4454,10 +4795,15 @@ async function exportImage(kind) {
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
       const pw = 297, ph = 210, margin = 8;
       const availW = pw - margin * 2, availH = ph - margin * 2;
+      /* ใช้อัตราย่อ "ชุดเดียว" กับทุกหน้า คิดจากหน้าแรก
+         เดิมคำนวณแยกทีละหน้า หน้าที่สูงกว่าจึงถูกย่อมากกว่า ได้ตัวหนังสือเล็กกว่าหน้าอื่น
+         ตอนนี้ทุกหน้าสูง 794px เท่ากันอยู่แล้ว แต่ล็อกอัตราย่อไว้กันพลาดอีกชั้น */
+      const base = shots[0];
+      const r0 = Math.min(availW / base.width, availH / base.height);
       shots.forEach((c, i) => {
         if (i) pdf.addPage('a4', 'landscape');
-        // ย่อให้พอดีกรอบโดยคงอัตราส่วน แล้วจัดกึ่งกลางหน้า — ไม่ตัดเนื้อหาทิ้ง
-        const r = Math.min(availW / c.width, availH / c.height);
+        // หน้าที่สูงเกิน (กรณีผิดปกติ) ต้องย่อเพิ่มเฉพาะเท่าที่จำเป็น ไม่งั้นจะล้นกระดาษ
+        const r = Math.min(r0, availH / c.height);
         const w = c.width * r, h = c.height * r;
         /* ฝังเป็น JPEG ไม่ใช่ PNG — ภาพ 2x แบบ PNG ทำให้ไฟล์โตถึง ~10MB
            ส่วน JPEG คุณภาพ 0.92 เหลือไม่ถึง 1MB และอ่านตัวเลขชัดเท่ากัน */
@@ -4466,9 +4812,11 @@ async function exportImage(kind) {
       });
       downloadBlob(pdf.output('blob'), name + '.pdf');
     }
-    toast(`บันทึกไฟล์ ${kind.toUpperCase()} เรียบร้อย · ${shots.length} หน้า`, 'ok');
+    toast(kind === 'png'
+      ? `บันทึกภาพ PNG เรียบร้อย · แยก ${shots.length} ไฟล์ (หน้าละไฟล์)\nถ้าเบราว์เซอร์ถามเรื่องดาวน์โหลดหลายไฟล์ ให้กด "อนุญาต"`
+      : `บันทึกไฟล์ PDF เรียบร้อย · ${shots.length} หน้า`, 'ok', 7000);
   } catch (e) {
-    console.error(e); toast('สร้างไฟล์ไม่สำเร็จ: ' + e.message, 'error');
+    exportErrorToast(e, kind === 'pdf' ? 'PDF' : 'รูปภาพ');
   } finally {
     btn.disabled = false;
     btn.innerHTML = kind === 'pdf' ? '<svg><use href="#i-report"/></svg>ดาวน์โหลด .pdf'
@@ -4478,70 +4826,146 @@ async function exportImage(kind) {
 
 /** เติมภาพกราฟลงในรายงาน — เรียกซ้ำได้ ปลอดภัยเสมอ
     ต้องรอให้ layout เสร็จก่อน ไม่งั้น toBase64Image จะคืน "data:," ซึ่งขึ้นเป็นรูปเสีย */
-function refreshReportChart() {
-  const box = $('#rp-trend-box'), img = $('#rp-trend');
-  if (!box || !img) return;
+/* =====================================================================
+   กราฟแนวโน้มสำหรับรายงาน — วาดแยกบน canvas นอกจอ
+   ---------------------------------------------------------------------
+   เดิมคัดลอกภาพจากกราฟบนหน้าภาพรวม ซึ่งพังได้ 2 แบบ:
+   1) ถ้าเปลี่ยนเดือนขณะเปิดหน้ารายงานอยู่ กราฟภาพรวมถูกสร้างใหม่ตอนถูกซ่อน
+      จึงไม่มีขนาด และรายงานไม่มีกราฟเลย (เจอจริงในหน้า 3)
+   2) ถ้าผู้ใช้เลือกกราฟบนหน้าจอเป็น "รถยนต์เข้า" ไว้ รายงานที่เขียนว่า
+      "แนวโน้มผู้ใช้บริการ" จะได้กราฟรถยนต์ไปแทน
+   การวาดเองบน canvas ขนาดตายตัว ไม่ขึ้นกับหน้าจอ ไม่มีอนิเมชัน จึงได้ภาพครบทุกครั้ง
+   ===================================================================== */
+function buildReportTrendImage(a, b, width) {
+  if (typeof Chart === 'undefined' || !a || !a.agg.rows.length) return null;
+  const p = palette();
+  /* วาดที่ความกว้างเท่าพื้นที่แสดงจริง ฟอนต์ 11px บนกราฟจึงออกมา 11px จริงในรายงาน
+     (ถ้าวาดใหญ่แล้วย่อลงช่องแคบ ป้ายแกนจะเล็กจนอ่านไม่ออก) */
+  const W = Math.max(280, Math.round(width || 400)) - 2;   // หักเส้นกรอบรูป 2px
+  /* อัตราส่วน 0.40 — สูงพอให้เห็นรูปแนวโน้มชัด และทำให้หน้า 2 พอดี A4
+     โดยไม่ต้องบีบระยะบรรทัด (ทดสอบแล้วทั้ง 59 เดือน) */
+  const H = Math.round(W * 0.40);
+  const cv = document.createElement('canvas');
+  cv.width = W * 2; cv.height = H * 2;  // 2 เท่าให้คมเมื่อพิมพ์และส่งออก PNG ความละเอียด 2x
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  /* Chart.js ต้องการ canvas ที่อยู่ใน DOM จึงจะคำนวณฟอนต์และขนาดได้ถูก
+     วางไว้นอกจอแทนการซ่อนด้วย display:none (ซึ่งจะทำให้ขนาดเป็นศูนย์) */
+  const host = document.createElement('div');
+  host.style.cssText = `position:fixed;left:-10000px;top:0;width:${W}px;height:${H}px;pointer-events:none`;
+  host.appendChild(cv);
+  document.body.appendChild(host);
 
-  /* ทำไมต้องวาดใหม่เองแทนการใช้ chart.toBase64Image() ตรง ๆ:
-     1) Chart.js มีอนิเมชันตอนสร้าง ถ้าจับภาพทันทีจะได้ภาพ "โปร่งใสทั้งแผ่น"
-        ซึ่งมีขนาดไฟล์ปกติ ตรวจด้วยความยาวสตริงไม่เจอ ต้องตรวจถึงระดับพิกเซล
-     2) canvas ของ Chart.js พื้นหลังโปร่งใส พอฝังลงรายงานโหมดมืดแล้วดูทะลุ
-        จึงระบายสีพื้นให้ก่อนเสมอ */
-  const grab = () => {
-    const ch = charts.trend;
-    if (!ch || !ch.canvas || !ch.canvas.width || !ch.canvas.height) return null;
-    const src = ch.canvas;
-    // ตรวจว่ามีพิกเซลที่ถูกวาดจริงหรือไม่ โดยย่อลงมาก่อนเพื่อไม่ให้เสียเวลาอ่านทั้งผืน
-    const probe = document.createElement('canvas');
-    probe.width = 60; probe.height = 24;
-    const pc = probe.getContext('2d', { willReadFrequently: true });
-    try { pc.drawImage(src, 0, 0, probe.width, probe.height); } catch { return null; }
-    let painted = false;
-    try {
-      const data = pc.getImageData(0, 0, probe.width, probe.height).data;
-      for (let i = 3; i < data.length; i += 4) { if (data[i] > 8) { painted = true; break; } }
-    } catch { return null; }          // canvas ปนเปื้อน (ไม่ควรเกิด แต่กันไว้)
-    if (!painted) return null;
+  const maxDay = Math.max(...a.agg.rows.map(r => r.d), ...(b && b.id !== a.id ? b.agg.rows.map(r => r.d) : [0]));
+  const labels = Array.from({ length: maxDay }, (_, i) => String(i + 1));
+  const series = f => { const m = Object.fromEntries(f.agg.rows.map(r => [r.d, num(r.cIn)])); return labels.map(l => m[+l] ?? null); };
+  // ทำสีพื้นใต้เส้นแบบโปร่งจากสีหลัก — รับทั้งรูปแบบ #RRGGBB และ #RGB ถ้าไม่ใช่ hex ไม่ถมพื้น
+  const soft = c => { const h = String(c || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(h)) return h + '22';
+    if (/^#[0-9a-f]{3}$/i.test(h)) return '#' + [...h.slice(1)].map(x => x + x).join('') + '22';
+    return 'transparent'; };
+  const ds = [{ label: a.label, data: series(a), borderColor: p.accent, backgroundColor: soft(p.accent),
+                borderWidth: 2.6, fill: true, tension: .32, pointRadius: 2.2, pointBackgroundColor: p.accent, spanGaps: true }];
+  if (b && b.id !== a.id) ds.push({ label: b.label, data: series(b), borderColor: p.violet, backgroundColor: 'transparent',
+                borderWidth: 2, borderDash: [6, 4], fill: false, tension: .32, pointRadius: 0, spanGaps: true });
 
+  let url = null, ch = null;
+  try {
+    ch = new Chart(cv, {
+      type: 'line', data: { labels, datasets: ds },
+      options: {
+        responsive: false, animation: false, devicePixelRatio: 2,
+        layout: { padding: { top: 4, right: 12, bottom: 2, left: 4 } },
+        plugins: {
+          legend: { position: 'top', align: 'end', labels: { color: p.dim, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { size: 12 } } },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { color: p.line }, ticks: { color: p.dim, font: { size: 10.5 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 6 },
+               title: { display: true, text: 'วันที่ในเดือน', color: p.faint, font: { size: 10.5 } } },
+          y: { beginAtZero: true, grid: { color: p.line }, border: { display: false },
+               ticks: { color: p.dim, font: { size: 11 }, maxTicksLimit: 5, callback: v => v >= 1000 ? (v / 1000) + 'k' : v },
+               title: { display: true, text: 'คน/วัน', color: p.faint, font: { size: 10.5 } } },
+        },
+      },
+    });
+    // ระบายพื้นหลังทึบ — canvas ของ Chart.js โปร่งใส ฝังลงรายงานแล้วจะดูทะลุ
     const out = document.createElement('canvas');
-    out.width = src.width; out.height = src.height;
+    out.width = cv.width; out.height = cv.height;
     const ctx = out.getContext('2d');
     ctx.fillStyle = cssVar('--surface-2') || '#ffffff';
     ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(src, 0, 0);
-    try { return out.toDataURL('image/png'); } catch { return null; }
-  };
-
-  let tries = 0;
-  /* ระหว่างหน้าโลโก้ยังแสดงอยู่ ตัวแอปถูกซ่อนด้วย display:none กราฟจึงไม่มีขนาด
-     การนับรอบในจังหวะนั้นจึงกินโควตาไปเปล่า ๆ ต้องรอจนแอปแสดงจริงก่อนถึงเริ่มนับ */
-  const appHidden = () => { const el = $('#app'); return !el || !el.offsetParent; };
-  const put = () => {
-    const d = grab();
-    if (d) { img.src = d; box.style.display = ''; return true; }
-    box.style.display = 'none';
-    return false;
-  };
-  if (put()) return;
-  const t = setInterval(() => {
-    if (!document.body.contains(img)) return clearInterval(t);   // ถูกเรนเดอร์ใหม่แล้ว
-    if (appHidden()) return;                                     // ยังอยู่หน้าโลโก้ รอต่อ
-    if (put() || ++tries > 20) clearInterval(t);
-  }, 120);
+    ctx.drawImage(cv, 0, 0);
+    url = out.toDataURL('image/png');
+  } catch (e) {
+    console.error('[report-trend]', e);
+  } finally {
+    try { ch && ch.destroy(); } catch {}
+    host.remove();
+  }
+  return url;
 }
 
-/** รอจนกราฟในรายงานพร้อมจริง ใช้ก่อนส่งออกไฟล์ เพื่อไม่ให้ได้รายงานที่กราฟหาย */
-function awaitReportChart(maxMs = 2500) {
+function refreshReportChart() {
+  const box = $('#rp-trend-box'), img = $('#rp-trend');
+  if (!box || !img) return;
+  /* ต้องให้กล่องมีความกว้างก่อนจึงวัดได้ — แสดงแบบมองไม่เห็นชั่วคราว
+     (display:none จะได้ความกว้างเป็นศูนย์) */
+  box.style.visibility = 'hidden'; box.style.display = '';
+  const width = img.parentElement.clientWidth || box.clientWidth;
+  box.style.visibility = '';
+  const url = buildReportTrendImage(A(), B(), width);
+  if (!url) { box.style.display = 'none'; checkReportPages(); return; }
+  img.onload = () => checkReportPages();   // ความสูงหน้าเปลี่ยนเมื่อภาพโหลดเสร็จ
+  img.src = url;
+  box.style.display = '';
+}
+
+/** รอจนภาพกราฟในรายงานโหลดเสร็จ ใช้ก่อนส่งออกไฟล์ เพื่อไม่ให้ได้รายงานที่กราฟหาย */
+function awaitReportChart(maxMs = 3000) {
+  refreshReportChart();
+  const img = $('#rp-trend');
+  if (!img || !img.src || img.complete) return Promise.resolve();
   return new Promise(res => {
-    refreshReportChart();
-    const t0 = performance.now();
-    const tick = () => {
-      const box = $('#rp-trend-box');
-      if (!box || box.style.display !== 'none' || performance.now() - t0 > maxMs) return res();
-      setTimeout(tick, 100);
-    };
-    tick();
+    const t = setTimeout(res, maxMs);
+    img.addEventListener('load', () => { clearTimeout(t); res(); }, { once: true });
+    img.addEventListener('error', () => { clearTimeout(t); res(); }, { once: true });
   });
+}
+
+/* =====================================================================
+   ตรวจว่าทุกหน้าของรายงานพอดี A4 แนวนอน
+   ---------------------------------------------------------------------
+   ถ้าหน้าใดเนื้อหาล้นเกิน 794px ห้ามตัดทิ้งเงียบ ๆ และห้ามปล่อยให้ล้นไปทับหน้าถัดไป
+   จึงขยายความสูงของหน้านั้นออก (ไม่มีข้อความหาย) แล้วเตือนใน console
+   ตอนส่งออก PDF หน้านั้นจะถูกย่อลงเล็กน้อยให้พอดีกระดาษ ซึ่งยังดีกว่าเนื้อหาหาย
+   คืนค่ารายการหน้าที่ล้น เพื่อให้ชุดทดสอบตรวจได้
+   ===================================================================== */
+const RP_W = 1123, RP_H = 794;
+/** ความสูงที่เนื้อหาต้องการจริง — ปลดความสูงที่ล็อกไว้ชั่วคราว
+    ตัวเว้นช่อง flex:1 จะยุบเป็นศูนย์ จึงได้ความสูงของเนื้อหาล้วน ๆ
+    (วัดด้วย scrollHeight ไม่ได้ เพราะลูกของ flex จะถูกบีบให้พอดีกล่องจนดูเหมือนไม่ล้น) */
+function naturalHeight(pg) {
+  const keep = pg.style.height;
+  pg.style.height = 'auto';
+  const h = pg.offsetHeight;
+  pg.style.height = keep;
+  return h;
+}
+function checkReportPages() {
+  const result = [];
+  $$('#report-sheet .rp-page').forEach((pg, i) => {
+    pg.classList.remove('rp-tight');
+    pg.style.height = RP_H + 'px';
+    let need = naturalHeight(pg), mode = 'ok';
+    // ขั้นที่ 1: บีบระยะบรรทัดและช่องไฟ (ตัวหนังสือขนาดเท่าเดิม อ่านได้ชัดเท่าเดิม)
+    if (need > RP_H) { pg.classList.add('rp-tight'); need = naturalHeight(pg); mode = 'tight'; }
+    // ขั้นที่ 2: ยังล้นอยู่ ขยายหน้าออก ดีกว่าตัดเนื้อหาทิ้ง (PDF จะย่อหน้านั้นลงเล็กน้อย)
+    if (need > RP_H) { pg.style.height = need + 'px'; mode = 'grown'; }
+    result.push({ page: i + 1, need, mode });
+  });
+  const bad = result.filter(r => r.mode !== 'ok');
+  if (bad.length) console.warn('[report] หน้าที่ต้องปรับให้พอดี A4:', bad);
+  return result;
 }
 
 /** ปรับอัตราย่อของแผ่นรายงานตามความกว้างที่มีจริง */
@@ -4563,10 +4987,10 @@ window.addEventListener('resize', () => { if (state.view === 'report') fitReport
 function exportCSV() {
   const a = A();
   if (!a) return;
-  const head = ['วันที่', 'วัน', 'วันหยุด', 'ลูกค้าเข้า', 'ลูกค้าออก', 'รถยนต์เข้า24ชม', 'รถยนต์ออก24ชม', 'จยย', 'เดลิเวอรี่', 'แท็กซี่'];
+  const head = ['วันที่', 'วัน', 'วันหยุด', 'ลูกค้าเข้า', 'ลูกค้าออก', 'รถยนต์เข้า24ชม', 'รถยนต์ออก24ชม', 'จยย', 'เดลิเวอรี่', 'MRTเข้า', 'MRTออก', 'แท็กซี่'];
   const rows = a.agg.rows.map(r => [
     `${r.d}/${a.month}/${a.year}`, r.dowName, r.isHoliday ? (r.holidayName || 'วันหยุด') : '',
-    r.cIn, r.cOut, r.vIn24, r.vOut24, r.mc, r.dlv, r.taxi,
+    r.cIn, r.cOut, r.vIn24, r.vOut24, r.mc, r.dlv, r.mrt, r.mrtOut, r.taxi,
   ]);
   const csv = [head, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });   // BOM ให้ Excel อ่านภาษาไทยถูก
