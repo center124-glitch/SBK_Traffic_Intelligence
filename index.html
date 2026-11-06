@@ -876,6 +876,20 @@ table.tbl tbody tr:hover td:first-child { background: var(--surface-2); }
   box-shadow: 0 6px 14px -6px var(--accent-line);
 }
 
+/* --- ตัวเลือกประเภทรายงาน (รายวัน/สัปดาห์/เดือน/ปี) --- */
+.rp-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.rp-scope .seg button { padding: 7px 16px; font-size: 13px; }
+.rp-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rp-pick .input { width: auto; min-width: 150px; height: 38px; }
+.rp-pick .btn { height: 38px; padding: 0 11px; }
+.rp-status { flex: 1 1 260px; min-width: 0; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.rp-status b { color: var(--text); font-weight: 700; }
+.rp-status .rp-warn { color: var(--amber); }
+@media (max-width: 640px) {
+  .rp-scope .seg { width: 100%; }
+  .rp-scope .seg button { flex: 1; padding: 7px 6px; }
+}
+
 /* --- สถานะว่าง / กำลังโหลด --- */
 .empty { text-align: center; padding: 54px 20px; }
 .empty-icon { width: 54px; height: 54px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 16px; background: var(--surface-2); color: var(--text-faint); }
@@ -1322,9 +1336,11 @@ pre.code {
       <section class="view" id="view-report">
         <div class="view-head">
           <h2 class="view-title">ส่งออกรายงาน</h2>
-          <p class="view-desc">สร้างไฟล์นำเสนอจากช่วงข้อมูลที่เลือกอยู่</p>
+          <p class="view-desc">เลือกประเภทรายงานและช่วงเวลา แล้วดาวน์โหลดเป็นสไลด์ PDF หรือภาพ</p>
         </div>
-        <div class="grid g-3" id="export-cards"></div>
+        <!-- ตัวเลือกประเภทรายงาน — ควบคุมทั้งตัวอย่างรายงานและไฟล์ที่ส่งออกทุกรูปแบบ -->
+        <div class="card c-cyan rp-scope" id="rp-scope"></div>
+        <div class="grid g-3" id="export-cards" style="margin-top:14px"></div>
         <div class="card c-mint" style="margin-top:14px">
           <div class="card-head"><div><h3 class="card-title">ตัวอย่างรายงาน</h3><p class="card-note">ภาพนี้คือสิ่งที่จะถูกบันทึกเป็น PNG / PDF</p></div></div>
           <p id="rp-hint" class="card-note" style="display:none;margin:0 0 10px">
@@ -2026,7 +2042,7 @@ if (typeof Chart === 'undefined') {
    ========================================================================== */
 'use strict';
 
-const APP_VERSION = '63.0';
+const APP_VERSION = '64.0';
 
 /* ---------- ค่าตั้งต้นการเชื่อมต่อ ---------- */
 /* โฟลเดอร์เดียวตามที่ผู้ใช้กำหนด — "ข้อมูลเปรียบเทียบ ยอดลูกค้าและยอดรถยนต์"
@@ -2709,6 +2725,11 @@ function integrityIssues(f) {
   // 5) ค่าติดลบ — ไม่ควรมีในข้อมูลนับจำนวน
   const neg = SUM_KEYS.filter(k => t[k] < 0);
   if (neg.length) out.push(`พบค่าติดลบในตัววัด: ${neg.join(', ')}`);
+  // 5.1) ชีตของวันที่ที่ไม่มีจริงในปฏิทิน (เช่น 31 เม.ย.) แต่มีตัวเลขกรอกไว้
+  //      รายงานรายเดือนยังนับรวมไว้ตามไฟล์ แต่ต้องแจ้งให้ตรวจไฟล์ต้นทาง
+  const bogus = (f.synthetic ? (f.invalidDates || []) :
+    g.rows.filter(r => r.unknown && f.year && f.month).map(r => `${r.d} ${monthTH(f.month)} ${f.year}`));
+  if (bogus.length) out.push(`พบข้อมูลของวันที่ที่ไม่มีอยู่จริงในปฏิทิน ${bogus.length} วัน (${bogus.slice(0, 3).join(', ')}) — ${f.synthetic ? 'ไม่ได้นำมานับในรายงานนี้' : 'ควรตรวจสอบไฟล์ต้นทาง'}`);
   // 6) วันที่ไม่มีข้อมูลในช่วงที่ควรมีแล้ว
   if (g.emptyDayCount > 0 && g.days > 0) out.push(`มีวันที่ยังไม่มีข้อมูล ${g.emptyDayCount} วัน`);
   return out;
@@ -2918,8 +2939,11 @@ function aggregate(file) {
 
   const rows = [];
   for (const d of days) {
-    const info = dayInfo(file.year, file.month, d.d);
-    const row = { ...d, ...info, dateLabel: `${d.d} ${monthTH(file.month)} ${file.year || ''}`.trim() };
+    /* ช่วงรายงานรายสัปดาห์/รายปีรวมวันจากหลายเดือน แต่ละวันจึงพก _y/_m ของตัวเองมา
+       ถ้าใช้ปี/เดือนของ "ไฟล์" กับทุกวัน วันในสัปดาห์และวันหยุดจะคำนวณผิดทั้งหมด */
+    const yy = d._y || file.year, mm = d._m || file.month;
+    const info = dayInfo(yy, mm, d.d);
+    const row = { ...d, ...info, y: yy, m: mm, dateLabel: `${d.d} ${monthTH(mm)} ${yy || ''}`.trim() };
     rows.push(row);
 
     // ค่า MRT ของวันนี้ ต้องคิดก่อนรวมยอด เพื่อให้เข้าทั้ง total, wk และ extremes พร้อมกัน
@@ -3107,6 +3131,7 @@ function pickDefaults() {
 function compareKind(a, b) {
   if (!a || !b) return '';
   if (a.id === b.id) return 'ช่วงเดียวกัน';
+  if (a.synthetic && a.cmpKind) return a.cmpKind;     // ช่วงรายงานรายวัน/สัปดาห์/ปี กำหนดชนิดการเทียบไว้เอง
   if (!a.month || !a.year || !b.month || !b.year) return 'เทียบช่วง';
   if (a.month === b.month && a.year !== b.year) return 'YoY (ปีต่อปี)';
   /* เทียบเป็นจำนวนเดือนสะสม เพื่อให้ ธ.ค. ↔ ม.ค. ข้ามปีนับเป็น MoM ด้วย
@@ -3125,6 +3150,187 @@ function comparabilityNote(a, b) {
   const da = a.agg.days, db = b.agg.days;
   if (da === db) return `ทั้งสองช่วงมีข้อมูล ${da} วันเท่ากัน`;
   return `⚠️ ${a.label} มี ${da} วัน แต่ ${b.label} มี ${db} วัน — ยอดรวมจึงเทียบกันตรง ๆ ไม่ได้ ให้ดูที่ "ค่าเฉลี่ยต่อวัน" แทน`;
+}
+
+
+/* =====================================================================
+   ช่วงรายงาน: รายวัน / รายสัปดาห์ / รายเดือน / รายปี
+   ---------------------------------------------------------------------
+   ข้อมูลต้นทางเก็บเป็นไฟล์ละเดือน รายงานแบบอื่นจึงต้อง "ตัดต่อ" วันจากหลายไฟล์
+   มาเป็นช่วงเดียว แล้วส่งเข้า aggregate() ตัวเดิม — ตัวเลขทุกตัวจึงคิดด้วยสูตร
+   ชุดเดียวกับแดชบอร์ด ไม่มีสูตรซ้ำซ้อนที่อาจให้ผลไม่ตรงกัน
+
+   วันที่ภายในใช้ { y: ปี พ.ศ., m: 1-12, d: 1-31 } ให้ตรงกับไฟล์ต้นทาง
+   และแปลงเป็น Date (ค.ศ.) เฉพาะตอนคำนวณช่วงวันเท่านั้น
+   ===================================================================== */
+const RP_SCOPES = {
+  day:   { label: 'รายวัน',     title: 'ประจำวัน',     code: 'D' },
+  week:  { label: 'รายสัปดาห์', title: 'ประจำสัปดาห์', code: 'W' },
+  month: { label: 'รายเดือน',   title: 'ประจำเดือน',   code: 'M' },
+  year:  { label: 'รายปี',      title: 'ประจำปี',      code: 'Y' },
+};
+
+const toJs   = (o) => new Date(o.y - 543, o.m - 1, o.d);
+const fromJs = (dt) => ({ y: dt.getFullYear() + 543, m: dt.getMonth() + 1, d: dt.getDate() });
+const addDays = (o, n) => { const dt = toJs(o); dt.setDate(dt.getDate() + n); return fromJs(dt); };
+const ymdKey = (o) => o.y * 10000 + o.m * 100 + o.d;              // เทียบลำดับวันได้ด้วยตัวเลข
+const dateTH = (o, withYear = true) => `${o.d} ${monthTH(o.m)}${withYear ? ' ' + o.y : ''}`;
+
+/** วันจันทร์ของสัปดาห์ที่มีวันนั้นอยู่ — สัปดาห์แบบไทย/ISO เริ่มวันจันทร์จบวันอาทิตย์ */
+function weekStart(o) {
+  const dow = toJs(o).getDay();                   // 0 = อาทิตย์
+  return addDays(o, dow === 0 ? -6 : 1 - dow);
+}
+
+/** ข้อความช่วงวันแบบสั้น เช่น "3–9 พ.ย. 2569" หรือ "28 ต.ค. – 3 พ.ย. 2569" */
+function rangeTH(from, to) {
+  if (from.y === to.y && from.m === to.m) return `${from.d}–${to.d} ${monthTH(to.m)} ${to.y}`;
+  if (from.y === to.y) return `${from.d} ${monthTH(from.m)} – ${to.d} ${monthTH(to.m)} ${to.y}`;
+  return `${dateTH(from)} – ${dateTH(to)}`;
+}
+
+/** ไฟล์รายเดือนทั้งหมดที่ซ้อนทับช่วง [from, to] */
+function filesInRange(from, to) {
+  const lo = from.y * 12 + from.m, hi = to.y * 12 + to.m;
+  return state.files.filter(f => f.year && f.month && (f.year * 12 + f.month) >= lo && (f.year * 12 + f.month) <= hi);
+}
+
+/**
+ * สร้างช่วงรายงานจากวันที่ from ถึง to (รวมทั้งสองวัน)
+ * โหลดไฟล์เดือนที่เกี่ยวข้องให้ก่อน (ใช้แคชถ้ามี) แล้วตัดเฉพาะวันในช่วงมารวมกัน
+ * คืน null ถ้าไม่มีไฟล์เดือนใดครอบคลุมเลย
+ */
+async function buildRange(from, to, meta, onProgress) {
+  const files = filesInRange(from, to);
+  if (!files.length) return null;
+  await ensurePeriods(files.map(f => f.id), onProgress);
+
+  /* รวมรายชื่อประตูจากทุกเดือนแบบจับคู่ "ตามชื่อ" ไม่ใช่ตามลำดับแถว
+     ถ้าเดือนหนึ่งเพิ่มหรือย้ายประตู การรวมตามลำดับจะเอายอดของคนละประตูมาบวกกันเงียบ ๆ */
+  const gateNames = [], gateIdx = new Map();
+  const norm = (n) => String(n || '').trim();
+  for (const f of files) for (const g of (f.gates || [])) {
+    const k = norm(g);
+    if (k && !gateIdx.has(k)) { gateIdx.set(k, gateNames.length); gateNames.push(g); }
+  }
+
+  const lo = ymdKey(from), hi = ymdKey(to);
+  const days = [];
+  const seen = new Set();
+  const invalid = [];
+  for (const f of files) {
+    if (!f.loaded) continue;
+    const map = (f.gates || []).map(g => gateIdx.get(norm(g)));
+    const dim = daysInMonth(f.year, f.month);
+    for (const d of (f.days || [])) {
+      /* ชีตของวันที่ที่ไม่มีจริงในปฏิทิน (เช่น 31 เม.ย., 30 ก.พ.) ต้องไม่ถูกนับ
+         ถ้านับ รายงานรายสัปดาห์ที่ครอบปลายเดือนจะมี 8 วัน และรายงานรายปีจะเกิน 365 วัน */
+      if (!(d.d >= 1 && d.d <= dim)) { if (!isEmptyDay(d)) invalid.push(`${d.d} ${monthTH(f.month)} ${f.year}`); continue; }
+      const k = ymdKey({ y: f.year, m: f.month, d: d.d });
+      if (k < lo || k > hi || seen.has(k)) continue;    // กันวันซ้ำ เผื่อมีไฟล์เดือนเดียวกันสองไฟล์
+      seen.add(k);
+      const remap = (arr) => {
+        const out = new Array(gateNames.length).fill(0);
+        (arr || []).forEach((v, i) => { const j = map[i]; if (j != null) out[j] += num(v); });
+        return out;
+      };
+      days.push({ ...d, _y: f.year, _m: f.month, gIn: remap(d.gIn), gOut: remap(d.gOut) });
+    }
+  }
+  days.sort((x, y) => (x._y * 10000 + x._m * 100 + x.d) - (y._y * 10000 + y._m * 100 + y.d));
+
+  const p = {
+    id: `rp:${meta.scope}:${lo}-${hi}`, synthetic: true,
+    scope: meta.scope, label: meta.label, cmpKind: meta.cmpKind || '',
+    from, to, docSuffix: meta.docSuffix,
+    // ปี/เดือนตัวแทน ใช้ในเลขที่เอกสารและที่ที่ต้องการค่าเดียว
+    year: to.y, month: (from.y === to.y && from.m === to.m) ? to.m : 0,
+    gates: gateNames, days, loaded: true,
+    expectedDays: Math.round((toJs(to) - toJs(from)) / 864e5) + 1,
+    invalidDates: invalid,
+  };
+  p.agg = aggregate(p);
+  return p;
+}
+
+/** วันล่าสุดที่มีข้อมูลจริงในบรรดาไฟล์ที่โหลดแล้ว — ใช้เป็นค่าเริ่มต้นของรายงานรายวัน/สัปดาห์ */
+function latestDataDate() {
+  let best = null;
+  for (const f of state.files) {
+    if (!f.loaded || !f.agg || !f.agg.rows.length) continue;
+    const r = f.agg.rows[f.agg.rows.length - 1];
+    const o = { y: r.y || f.year, m: r.m || f.month, d: r.d };
+    if (!best || ymdKey(o) > ymdKey(best)) best = o;
+  }
+  return best;
+}
+
+/** ปีทั้งหมดที่มีไฟล์ (พ.ศ.) เรียงจากใหม่ไปเก่า */
+function availableYears() {
+  return [...new Set(state.files.map(f => f.year).filter(Boolean))].sort((a, b) => b - a);
+}
+
+/**
+ * สร้างคู่ช่วงรายงาน (ช่วงหลัก + ช่วงฐานสำหรับเปรียบเทียบ) ตามประเภทรายงาน
+ *   day  — เทียบกับวันเดียวกันของสัปดาห์ก่อน (ห้างมีรูปแบบตามวันในสัปดาห์ชัดมาก
+ *          เทียบกับ "เมื่อวาน" จะได้เสาร์เทียบศุกร์ ซึ่งไม่มีความหมาย)
+ *   week — เทียบกับสัปดาห์ก่อนหน้า
+ *   year — เทียบกับ "ช่วงเดียวกัน" ของปีก่อน ถ้าปีปัจจุบันยังไม่ครบปี
+ *          (เทียบ ม.ค.–พ.ย. กับทั้งปีที่แล้วจะได้ % ที่เพี้ยนเพราะมีเทศกาลปลายปีอยู่ฝั่งเดียว)
+ */
+async function buildReportPair(scope, anchor, onProgress) {
+  if (scope === 'day') {
+    const a = await buildRange(anchor, anchor, {
+      scope, label: `วัน${DOW_TH[toJs(anchor).getDay()]}ที่ ${dateTH(anchor)}`,
+      cmpKind: 'เทียบวันเดียวกันของสัปดาห์ก่อน', docSuffix: `D${anchor.y}${String(anchor.m).padStart(2, '0')}${String(anchor.d).padStart(2, '0')}`,
+    }, onProgress);
+    const bd = addDays(anchor, -7);
+    const b = await buildRange(bd, bd, { scope, label: `วัน${DOW_TH[toJs(bd).getDay()]}ที่ ${dateTH(bd)}` }, onProgress);
+    return { a, b };
+  }
+  if (scope === 'week') {
+    const s0 = weekStart(anchor), e0 = addDays(s0, 6);
+    const wkNo = isoWeek(s0);
+    const a = await buildRange(s0, e0, {
+      scope, label: `สัปดาห์ ${rangeTH(s0, e0)}`,
+      cmpKind: 'WoW (สัปดาห์ต่อสัปดาห์)', docSuffix: `W${s0.y}${String(wkNo).padStart(2, '0')}`,
+    }, onProgress);
+    const s1 = addDays(s0, -7), e1 = addDays(s0, -1);
+    const b = await buildRange(s1, e1, { scope, label: `สัปดาห์ ${rangeTH(s1, e1)}` }, onProgress);
+    return { a, b };
+  }
+  if (scope === 'year') {
+    const y = anchor.y;
+    const a = await buildRange({ y, m: 1, d: 1 }, { y, m: 12, d: 31 }, {
+      scope, label: `ปี ${y}`, cmpKind: 'YoY (ปีต่อปี)', docSuffix: `Y${y}`,
+    }, onProgress);
+    if (!a || !a.agg.hasData) return { a, b: null };
+    const last = a.agg.rows[a.agg.rows.length - 1];
+    const full = last.m === 12 && last.d === 31;
+    const endB = full ? { y: y - 1, m: 12, d: 31 } : { y: y - 1, m: last.m, d: Math.min(last.d, daysInMonth(y - 1, last.m)) };
+    const b = await buildRange({ y: y - 1, m: 1, d: 1 }, endB, {
+      scope, label: full ? `ปี ${y - 1}` : `ปี ${y - 1} (ม.ค.–${dateTH(endB, false)} ช่วงเดียวกัน)`,
+    }, onProgress);
+    if (!full) {
+      // ปีปัจจุบันยังไม่ครบ — แสดงให้ชัดว่าข้อมูลถึงวันไหน เพื่อไม่ให้ผู้อ่านเข้าใจว่าเป็นทั้งปี
+      a.label = `ปี ${y} (ม.ค.–${dateTH({ y, m: last.m, d: last.d }, false)})`;
+      a.cmpKind = 'YoY ช่วงเดียวกันของปีก่อน';
+    }
+    return { a, b };
+  }
+  return { a: null, b: null };
+}
+
+function daysInMonth(yBE, m) { return new Date(yBE - 543, m, 0).getDate(); }
+
+/** สัปดาห์ที่เท่าไรของปี ตามมาตรฐาน ISO-8601 (ใช้ในเลขที่เอกสาร) */
+function isoWeek(o) {
+  const dt = toJs(o);
+  const t = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  const dayNum = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 864e5 + 1) / 7);
 }
 
 /* ==========================================================================
@@ -3886,11 +4092,21 @@ function buildReportAnalysis(a, b) {
   // ---------- 1. ภาพรวม ----------
   const dCin = b ? delta(av.cIn, b.agg.avg.cIn) : null;
   const dir = dCin == null ? '' : dCin > 0.05 ? 'เพิ่มขึ้น' : dCin < -0.05 ? 'ลดลง' : 'ทรงตัว';
-  let s1 = `ช่วง ${a.label} มีผู้ใช้บริการเข้าศูนย์รวม ${fmt(t.cIn)} คน จากข้อมูล ${ag.days} วัน ` +
-           `คิดเป็นค่าเฉลี่ย ${fmt(Math.round(av.cIn))} คนต่อวัน`;
+  /* รายงานรายวันมีข้อมูลวันเดียว คำว่า "จากข้อมูล 1 วัน คิดเป็นค่าเฉลี่ย..." จึงซ้ำซ้อน
+     ใช้ประโยคตรง ๆ แทน ส่วนรายงานช่วงยาว (สัปดาห์/เดือน/ปี) คงรูปแบบค่าเฉลี่ยไว้ */
+  const oneDay = ag.days === 1 && (!b || b.agg.days === 1);
+  let s1 = oneDay
+    ? `${a.label} มีผู้ใช้บริการเข้าศูนย์รวม ${fmt(t.cIn)} คน`
+    : `ช่วง ${a.label} มีผู้ใช้บริการเข้าศูนย์รวม ${fmt(t.cIn)} คน จากข้อมูล ${ag.days} วัน ` +
+      `คิดเป็นค่าเฉลี่ย ${fmt(Math.round(av.cIn))} คนต่อวัน`;
+  if (a.synthetic && a.expectedDays && ag.days < a.expectedDays && a.scope !== 'year') {
+    s1 += ` (มีข้อมูล ${ag.days} จาก ${a.expectedDays} วันของช่วงนี้)`;
+  }
   if (dCin != null) {
-    s1 += ` เมื่อเทียบกับ ${b.label} ซึ่งมีค่าเฉลี่ย ${fmt(Math.round(b.agg.avg.cIn))} คนต่อวัน ` +
-          `พบว่า${dir}ร้อยละ ${Math.abs(dCin).toFixed(1)}`;
+    s1 += oneDay
+      ? ` เมื่อเทียบกับ${b.label} ซึ่งมี ${fmt(Math.round(b.agg.avg.cIn))} คน พบว่า${dir}ร้อยละ ${Math.abs(dCin).toFixed(1)}`
+      : ` เมื่อเทียบกับ ${b.label} ซึ่งมีค่าเฉลี่ย ${fmt(Math.round(b.agg.avg.cIn))} คนต่อวัน ` +
+        `พบว่า${dir}ร้อยละ ${Math.abs(dCin).toFixed(1)}`;
     if (ag.days !== b.agg.days) {
       s1 += ` ทั้งนี้สองช่วงมีจำนวนวันไม่เท่ากัน (${ag.days} วัน และ ${b.agg.days} วัน) ` +
             `การเปรียบเทียบจึงใช้ค่าเฉลี่ยต่อวันเป็นเกณฑ์ ไม่ใช้ยอดรวม`;
@@ -3925,7 +4141,7 @@ function buildReportAnalysis(a, b) {
   // ---------- 3. พฤติกรรมช่วงเวลา ----------
   let s3 = '';
   if (!pk.cIn.empty) {
-    s3 += `ชั่วโมงที่มีผู้เข้าศูนย์มากที่สุดคือ ${pk.cIn.label} น. เฉลี่ย ${fmt(Math.round(pk.cIn.value))} คนต่อชั่วโมง`;
+    s3 += `ชั่วโมงที่มีผู้เข้าศูนย์มากที่สุดคือ ${pk.cIn.label} น. ${ag.days === 1 ? 'จำนวน' : 'เฉลี่ย'} ${fmt(Math.round(pk.cIn.value))} คนต่อชั่วโมง`;
   }
   if (!op.empty) {
     s3 += ` อย่างไรก็ตาม เมื่อประมาณจำนวนผู้ที่อยู่ภายในศูนย์ ณ แต่ละช่วงเวลา ` +
@@ -3942,7 +4158,9 @@ function buildReportAnalysis(a, b) {
   // ---------- 4. รูปแบบรายวัน ----------
   const ph = peakHourByDow(a).filter(Boolean);
   let s4 = '';
-  if (ph.length) {
+  /* ต้องมีอย่างน้อย 2 วันในสัปดาห์จึงจะเทียบรูปแบบกันได้
+     รายงานรายวันมีวันเดียว ประโยค "ช่วงที่หนาแน่นที่สุดของสัปดาห์คือ..." จะผิดความหมาย */
+  if (ph.length >= 2) {
     const wknd = ph.filter(x => x.dow === 0 || x.dow === 6);
     const wday = ph.filter(x => x.dow >= 1 && x.dow <= 5);
     const avgH = arr => arr.length ? (arr.reduce((s2, x) => s2 + x.hour, 0) / arr.length) : null;
@@ -4138,9 +4356,163 @@ function buildInsights(a, b) {
 
 /* ========================= หน้ารายงาน + การส่งออก ========================= */
 
+/* =====================================================================
+   ประเภทรายงาน: รายวัน / รายสัปดาห์ / รายเดือน / รายปี
+   ---------------------------------------------------------------------
+   รายเดือน  → ใช้ช่วงหลัก/ฐานที่เลือกจากแถบด้านบน (พฤติกรรมเดิม)
+   แบบอื่น   → สร้างช่วงสังเคราะห์จากไฟล์รายเดือน (ดู buildReportPair)
+   ทุกส่วนของหน้ารายงานและการส่งออกอ่านผ่าน RA()/RB() ที่เดียว
+   จึงรับประกันว่าตัวอย่างบนจอ, PDF, PNG, PowerPoint และ CSV เป็นช่วงเดียวกันเสมอ
+   ===================================================================== */
+state.rp = { scope: 'month', anchor: null, year: null, a: null, b: null, busy: false, err: '' };
+try { const sc = localStorage.getItem('sbk50.rpScope'); if (RP_SCOPES[sc]) state.rp.scope = sc; } catch {}
+
+/** ช่วงหลักของรายงาน */
+function RA() {
+  if (state.rp.scope === 'month') return A();
+  const a = state.rp.a;
+  return (a && a.agg) ? a : null;
+}
+/** ช่วงฐานของรายงาน — ไม่มีข้อมูลถือว่าไม่มีการเปรียบเทียบ ดีกว่าเทียบกับศูนย์แล้วได้ −100% */
+function RB() {
+  if (state.rp.scope === 'month') return B();
+  const b = state.rp.b;
+  return (b && b.agg && b.agg.hasData) ? b : null;
+}
+
+const isoOf = (o) => `${o.y - 543}-${String(o.m).padStart(2, '0')}-${String(o.d).padStart(2, '0')}`;
+const fromIso = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? { y: +m[1] + 543, m: +m[2], d: +m[3] } : null; };
+
+/** ขอบเขตวันที่เลือกได้ — จากวันแรกของไฟล์เก่าสุด ถึงวันล่าสุดที่มีข้อมูล */
+function rpDateBounds() {
+  const fs = state.files.filter(f => f.year && f.month);
+  if (!fs.length) return null;
+  const first = fs.reduce((x, f) => (f.year * 12 + f.month < x.year * 12 + x.month ? f : x));
+  const last = latestDataDate();
+  return { min: { y: first.year, m: first.month, d: 1 }, max: last };
+}
+
+function renderScopeBar() {
+  const box = $('#rp-scope');
+  if (!box) return;
+  const rp = state.rp;
+  const bounds = rpDateBounds();
+  if (!rp.anchor && bounds && bounds.max) rp.anchor = bounds.max;
+  if (!rp.year) rp.year = (rp.anchor && rp.anchor.y) || availableYears()[0] || null;
+
+  let pick = '';
+  if (rp.scope === 'day' || rp.scope === 'week') {
+    pick = `
+      <button class="btn" id="rp-prev" title="${rp.scope === 'day' ? 'วันก่อนหน้า' : 'สัปดาห์ก่อนหน้า'}" aria-label="ก่อนหน้า">‹</button>
+      <input type="date" class="input" id="rp-date"
+             value="${rp.anchor ? isoOf(rp.anchor) : ''}"
+             ${bounds ? `min="${isoOf(bounds.min)}"` : ''} ${bounds && bounds.max ? `max="${isoOf(bounds.max)}"` : ''}>
+      <button class="btn" id="rp-next" title="${rp.scope === 'day' ? 'วันถัดไป' : 'สัปดาห์ถัดไป'}" aria-label="ถัดไป">›</button>`;
+  } else if (rp.scope === 'year') {
+    pick = `<select class="input" id="rp-year">
+      ${availableYears().map(y => `<option value="${y}" ${y === rp.year ? 'selected' : ''}>ปี ${y}</option>`).join('')}
+    </select>`;
+  }
+
+  // ข้อความสถานะ: บอกให้ชัดว่ารายงานครอบคลุมช่วงไหน และเทียบกับอะไร
+  let status = '';
+  if (rp.busy) status = `<span>กำลังเตรียมข้อมูล${rp.busyNote ? ' · ' + rp.busyNote : ''}...</span>`;
+  else if (rp.err) status = `<span class="rp-warn">⚠️ ${rp.err}</span>`;
+  else {
+    const a = RA(), b = RB();
+    if (a) {
+      status = `ช่วงรายงาน: <b>${a.label}</b>` +
+        (a.synthetic && a.scope !== 'year' && a.agg.days < a.expectedDays
+          ? ` <span class="rp-warn">(มีข้อมูล ${a.agg.days}/${a.expectedDays} วัน)</span>` : '') +
+        `<br>เปรียบเทียบกับ: ${b ? `<b>${b.label}</b> · ${compareKind(a, b)}` : '<span class="rp-warn">ไม่มีข้อมูลช่วงเปรียบเทียบ</span>'}`;
+      if (rp.scope === 'month') status += `<br><span style="color:var(--text-faint)">รายเดือนใช้ช่วงหลัก/ฐานจากแถบด้านบน</span>`;
+    }
+  }
+
+  box.innerHTML = `
+    <div class="seg" id="rp-seg" role="tablist" aria-label="ประเภทรายงาน">
+      ${Object.entries(RP_SCOPES).map(([k, v]) =>
+        `<button role="tab" data-scope="${k}" class="${k === rp.scope ? 'on' : ''}" aria-selected="${k === rp.scope}">${v.label}</button>`).join('')}
+    </div>
+    ${pick ? `<div class="rp-pick">${pick}</div>` : ''}
+    <div class="rp-status" id="rp-status">${status}</div>`;
+
+  $$('#rp-seg button').forEach(bt => bt.addEventListener('click', () => setReportScope(bt.dataset.scope)));
+  $('#rp-date')?.addEventListener('change', e => {
+    const o = fromIso(e.target.value);
+    if (o) setReportScope(rp.scope, o);
+  });
+  const step = rp.scope === 'week' ? 7 : 1;
+  $('#rp-prev')?.addEventListener('click', () => rp.anchor && setReportScope(rp.scope, addDays(rp.anchor, -step)));
+  $('#rp-next')?.addEventListener('click', () => rp.anchor && setReportScope(rp.scope, addDays(rp.anchor, step)));
+  $('#rp-year')?.addEventListener('change', e => { rp.year = +e.target.value; setReportScope('year'); });
+}
+
+let _rpSeq = 0;      // กันผลลัพธ์เก่าทับผลลัพธ์ใหม่ เมื่อผู้ใช้กดเปลี่ยนช่วงรัว ๆ
+async function setReportScope(scope, anchor) {
+  const rp = state.rp;
+  if (!RP_SCOPES[scope]) return;
+  rp.scope = scope;
+  try { localStorage.setItem('sbk50.rpScope', scope); } catch {}
+  if (anchor) {
+    // ไม่ให้เลือกเกินวันล่าสุดที่มีข้อมูล หรือก่อนไฟล์แรก
+    const bd = rpDateBounds();
+    if (bd && bd.max && ymdKey(anchor) > ymdKey(bd.max)) anchor = bd.max;
+    if (bd && ymdKey(anchor) < ymdKey(bd.min)) anchor = bd.min;
+    rp.anchor = anchor;
+    rp.year = anchor.y;
+  }
+  rp.err = '';
+  if (scope === 'month') { rp.a = rp.b = null; renderReport(); return; }
+
+  const seq = ++_rpSeq;
+  rp.busy = true; rp.busyNote = '';
+  renderScopeBar();
+  $('#report-canvas').innerHTML = `<div class="empty"><div class="spinner"></div><p class="card-note" style="margin-top:12px">กำลังรวบรวมข้อมูล${RP_SCOPES[scope].label}...</p></div>`;
+  $('#export-cards').innerHTML = '';
+  try {
+    const anchorFor = scope === 'year' ? { y: rp.year, m: 1, d: 1 } : rp.anchor;
+    if (!anchorFor) throw new Error('ยังไม่มีข้อมูลให้เลือกวันที่');
+    const pair = await buildReportPair(scope, anchorFor, note => {
+      if (seq !== _rpSeq) return;
+      rp.busyNote = `โหลด ${note}`;
+      const st = $('#rp-status'); if (st) st.textContent = `กำลังเตรียมข้อมูล · โหลด ${note}...`;
+    });
+    if (seq !== _rpSeq) return;                       // ผู้ใช้เปลี่ยนช่วงไปแล้ว ทิ้งผลนี้
+    if (!pair.a) throw new Error('ไม่มีไฟล์ข้อมูลของช่วงที่เลือก');
+    if (!pair.a.agg.hasData) throw new Error(`ยังไม่มีข้อมูลของ${pair.a.label}`);
+    rp.a = pair.a; rp.b = pair.b;
+  } catch (e) {
+    if (seq !== _rpSeq) return;
+    console.error('[report-scope]', e);
+    rp.a = rp.b = null;
+    rp.err = e.message || String(e);
+  } finally {
+    if (seq === _rpSeq) { rp.busy = false; renderReport(); }
+  }
+}
+
+/** ชื่อไฟล์ที่ปลอดภัยทุกระบบปฏิบัติการ — ตัดช่องว่าง จุด วงเล็บ ขีด และทับออก */
+const safeName = (s) => String(s || '').replace(/[\s.\/\\()–—:]+/g, '_').replace(/^_+|_+$/g, '');
+
+
 function renderReport() {
-  const a = A(), b = B();
-  if (!a) return;
+  /* เปิดแอปมาโดยจำประเภทรายงานแบบอื่นไว้ (เช่นรายสัปดาห์) — ต้องสร้างช่วงให้ก่อน
+     setReportScope จะเรียก renderReport กลับมาเองเมื่อพร้อม */
+  if (state.rp.scope !== 'month' && !state.rp.a && !state.rp.busy && !state.rp.err && state.files.some(f => f.loaded)) {
+    setReportScope(state.rp.scope);
+    return;
+  }
+  renderScopeBar();
+  if (state.rp.busy) return;
+  const a = RA(), b = RB();
+  if (!a || !a.agg || !a.agg.hasData) {
+    // ไม่มีข้อมูลของช่วงที่เลือก — บอกเหตุผลและซ่อนปุ่มส่งออก แทนการส่งออกรายงานศูนย์ทั้งฉบับ
+    $('#export-cards').innerHTML = '';
+    $('#report-canvas').innerHTML = `<div class="empty"><p class="card-note">${
+      state.rp.err || 'ยังไม่มีข้อมูลของช่วงที่เลือก — ลองเลือกวันหรือช่วงอื่น'}</p></div>`;
+    return;
+  }
 
   $('#export-cards').innerHTML = `
     <div class="card c-amber">
@@ -4177,7 +4549,8 @@ function renderReport() {
   const recs = buildRecommendations(a, b);
   const issues = (typeof integrityIssues === 'function' ? integrityIssues(a) : []);
   const now = new Date();
-  const docNo = `SBK-TR-${a.year || now.getFullYear() + 543}${String(a.month || 0).padStart(2, '0')}`;
+  const docNo = reportDocNo(a);
+  const scopeTitle = RP_SCOPES[a.synthetic ? a.scope : 'month'].title;
 
   const dRow = (m) => {
     const d = b ? delta(av[m.key], b.agg.avg[m.key]) : null;
@@ -4198,8 +4571,8 @@ function renderReport() {
   /* หัวข้อย่อยของแต่ละบล็อก — รูปแบบเดียวกันทั้งเอกสารเพื่อให้อ่านเป็นลำดับชั้น */
   const sec = (title, note) => `<div style="display:flex;align-items:baseline;gap:9px;margin:0 0 9px">
       <span style="width:4px;height:15px;border-radius:99px;background:linear-gradient(180deg,var(--accent),var(--mint));align-self:center"></span>
-      <span style="font-size:13px;font-weight:700;letter-spacing:-.01em">${title}</span>
-      ${note ? `<span style="font-size:9.5px;color:var(--text-faint)">${note}</span>` : ''}
+      <span style="font-size:13px;font-weight:700;letter-spacing:-.01em;flex:none">${title}</span>
+      ${note ? `<span style="font-size:9.5px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${note}</span>` : ''}
       <span style="flex:1;height:1px;background:var(--line);align-self:center"></span>
     </div>`;
 
@@ -4243,13 +4616,16 @@ function renderReport() {
             <div style="font-size:21px;font-weight:700;letter-spacing:-.02em;margin-top:2px">
               รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ</div>
             <div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:3px">
-              ประจำงวด ${a.label}${b ? ` · เปรียบเทียบกับ ${b.label}` : ''}</div>
+              รายงาน${scopeTitle} · ${a.label}${b ? ` · เปรียบเทียบกับ ${b.label}` : ''}</div>
           </div>
         </div>
-        <table style="font-size:10px;color:var(--text-dim);line-height:1.85;text-align:right;border-collapse:collapse">
+        <!-- 5 แถว (เพิ่มแถวประเภทรายงาน) — ระยะบรรทัด 1.6 ให้ความสูงหัวกระดาษเท่าเดิม -->
+        <table style="font-size:10px;color:var(--text-dim);line-height:1.6;text-align:right;border-collapse:collapse">
           <tr><td style="padding:0 0 0 12px">เลขที่เอกสาร</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${docNo}</td></tr>
           <tr><td style="padding:0 0 0 12px">วันที่ออกรายงาน</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${now.toLocaleDateString('th-TH')}</td></tr>
-          <tr><td style="padding:0 0 0 12px">จำนวนวันที่มีข้อมูล</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${a.agg.days} วัน</td></tr>
+          <tr><td style="padding:0 0 0 12px">ประเภทรายงาน</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${RP_SCOPES[a.synthetic ? a.scope : 'month'].label}</td></tr>
+          <tr><td style="padding:0 0 0 12px">จำนวนวันที่มีข้อมูล</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${
+            a.synthetic && a.scope !== 'year' && a.agg.days < a.expectedDays ? `${a.agg.days} จาก ${a.expectedDays} วัน` : `${a.agg.days} วัน`}</td></tr>
           <tr><td style="padding:0 0 0 12px">ประเภทการเปรียบเทียบ</td><td style="padding:0 0 0 12px;color:var(--text);font-weight:600">${b ? compareKind(a, b) : '—'}</td></tr>
         </table>
       </div>
@@ -4262,7 +4638,7 @@ function renderReport() {
       </div>
 
       <!-- ---------- ตัวเลขสำคัญ 6 ช่อง (แนวนอนวางได้ครบทุกตัววัดหลัก) ---------- -->
-      <div style="margin-top:15px">${sec('ตัวเลขสำคัญประจำงวด', b ? `ร้อยละเทียบกับ ${b.label} ด้วยค่าเฉลี่ยต่อวัน` : '')}</div>
+      <div style="margin-top:15px">${sec('ตัวเลขสำคัญประจำงวด', b ? 'ร้อยละเทียบกับช่วงฐาน ด้วยค่าเฉลี่ยต่อวัน' : '')}</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
         ${['cIn', 'cOut', 'vIn24', 'vOut24', 'mc', 'dlv', 'mrt'].map(k => {
           const m = METRIC_BY_KEY[k];
@@ -4273,7 +4649,8 @@ function renderReport() {
             <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;margin-bottom:4px;
                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.label}</div>
             <div class="num" style="font-size:18px;font-weight:700;color:var(--m-${m.color}-i);letter-spacing:-.02em">${fmt(t[k])}</div>
-            <div style="font-size:9.5px;color:var(--text-faint);margin-top:2px">เฉลี่ย ${fmt(Math.round(av[k]))} ${m.unit}/วัน</div>
+            <div style="font-size:9.5px;color:var(--text-faint);margin-top:2px">${
+              a.agg.days === 1 ? 'ยอดตลอดทั้งวัน' : `เฉลี่ย ${fmt(Math.round(av[k]))} ${m.unit}/วัน`}</div>
             <div style="font-size:10.5px;color:${col};font-weight:700;margin-top:3px">${d == null ? '—' : pct(d)}</div>
           </div>`;
         }).join('')}
@@ -4282,11 +4659,11 @@ function renderReport() {
       <!-- ---------- ตารางสถิติ + ภาคผนวกช่วงเวลา วางคู่กันตามแนวกว้าง ---------- -->
       <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:22px;margin-top:17px">
         <div>
-          ${sec('ตารางสรุปสถิติเปรียบเทียบ')}
+          ${sec('ตารางสรุปสถิติเปรียบเทียบ', b ? `ฐาน = ${b.label}` : 'ไม่มีช่วงเปรียบเทียบ')}
           <table class="tbl" style="font-size:11px"><thead><tr>
             <th style="text-align:left">ประเภท</th>
             <th>ยอดรวม</th><th>เฉลี่ย/วัน</th>
-            <th>ยอดรวม ${b ? b.label : '—'}</th><th>เฉลี่ย/วัน ${b ? b.label : '—'}</th>
+            <th>ยอดรวม (ฐาน)</th><th>เฉลี่ย/วัน (ฐาน)</th>
             <th>เปลี่ยนแปลง</th>
           </tr></thead><tbody>${METRICS.map(dRow).join('')}</tbody></table>
           <div style="font-size:9.5px;color:var(--text-faint);margin-top:6px;line-height:1.55">
@@ -4375,7 +4752,7 @@ function renderReport() {
 
           <!-- กราฟวาดเองที่ความกว้างจริงของคอลัมน์นี้ (วัดตอนรันไทม์) ฟอนต์บนกราฟจึงไม่ถูกย่อ -->
           <div id="rp-trend-box" style="display:none;margin-top:18px">
-            ${sec('แนวโน้มลูกค้าเข้ารายวัน', b && b.id !== a.id ? `${a.label} เทียบ ${b.label}` : a.label)}
+            ${sec(trendSpec(a, b).title, b && b.id !== a.id ? 'เส้นทึบ = ช่วงรายงาน · เส้นประ = ช่วงเปรียบเทียบ' : '')}
             <img id="rp-trend" alt="กราฟแนวโน้มลูกค้าเข้ารายวัน"
                  style="display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface-2)">
           </div>
@@ -4491,7 +4868,7 @@ function chartPNG(id) {
 }
 
 async function exportPPTX() {
-  const a = A(), b = B();
+  const a = RA(), b = RB();
   if (!a) return toast('ยังไม่มีข้อมูล', 'warn');
   const btn = $('#btn-pptx');
   if (!btn) return;
@@ -4521,7 +4898,8 @@ async function exportPPTX() {
     const analysis = buildReportAnalysis(a, b);
     const recs = buildRecommendations(a, b);
     const now = new Date();
-    const docNo = `SBK-TR-${a.year || now.getFullYear() + 543}${String(a.month || 0).padStart(2, '0')}`;
+    const docNo = reportDocNo(a);
+    const scopeTitle = RP_SCOPES[a.synthetic ? a.scope : 'month'].title;
 
     const pptx = new PptxGenJS();
     pptx.layout = 'LAYOUT_16x9';                 // 10 × 5.63 นิ้ว
@@ -4566,10 +4944,10 @@ async function exportPPTX() {
     s1.addText('รายงานวิเคราะห์ยอดลูกค้าและยานพาหนะ',
       { x: 0.95, y: 1.85, w: 8.4, h: 0.66, fontSize: 31, bold: true, color: INK, fontFace: F });
     s1.addShape(pptx.ShapeType.rect, { x: 0.95, y: 2.56, w: 1.1, h: 0.045, fill: { color: TEAL } });
-    s1.addText(`ประจำงวด ${a.label}${b ? `   เปรียบเทียบกับ ${b.label}` : ''}`,
-      { x: 0.95, y: 2.72, w: 8.4, h: 0.4, fontSize: 16, color: TEAL, bold: true, fontFace: F });
+    s1.addText(`รายงาน${scopeTitle} · ${a.label}${b ? `\nเปรียบเทียบกับ ${b.label}` : ''}`,
+      { x: 0.95, y: 2.68, w: 8.4, h: 0.62, fontSize: 15, color: TEAL, bold: true, fontFace: F, lineSpacingMultiple: 1.15, valign: 'top' });
     s1.addText(`${b ? compareKind(a, b) + '   ·   ' : ''}ข้อมูล ${a.agg.days} วัน`,
-      { x: 0.95, y: 3.12, w: 8.4, h: 0.3, fontSize: 11.5, color: DIM, fontFace: F });
+      { x: 0.95, y: 3.36, w: 8.4, h: 0.3, fontSize: 11.5, color: DIM, fontFace: F });
     s1.addText(`เลขที่เอกสาร ${docNo}\nวันที่ออกรายงาน ${now.toLocaleDateString('th-TH')}`,
       { x: 0.95, y: 4.05, w: 8.4, h: 0.6, fontSize: 10, color: FAINT, fontFace: F, lineSpacingMultiple: 1.3 });
 
@@ -4590,7 +4968,7 @@ async function exportPPTX() {
       card(s2, x, 2.62, w, 1.62, col);
       s2.addText(m.label, { x: x + 0.13, y: 2.76, w: w - 0.26, h: 0.26, fontSize: 9, color: DIM, fontFace: F });
       s2.addText(fmt(a.agg.total[k]), { x: x + 0.13, y: 3.02, w: w - 0.26, h: 0.44, fontSize: 19, bold: true, color: col, fontFace: F });
-      s2.addText(`เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))} ${m.unit}/วัน`,
+      s2.addText(a.agg.days === 1 ? 'ยอดตลอดทั้งวัน' : `เฉลี่ย ${fmt(Math.round(a.agg.avg[k]))} ${m.unit}/วัน`,
         { x: x + 0.13, y: 3.46, w: w - 0.26, h: 0.24, fontSize: 8, color: FAINT, fontFace: F });
       s2.addText(d == null ? '—' : pct(d),
         { x: x + 0.13, y: 3.72, w: w - 0.26, h: 0.28, fontSize: 11, bold: true,
@@ -4602,12 +4980,12 @@ async function exportPPTX() {
 
     // ---------- 3. ตารางสถิติ ----------
     const s3 = pptx.addSlide({ masterName: 'BODY' });
-    head(s3, 'ตารางสรุปสถิติเปรียบเทียบ', b ? `${a.label} เทียบ ${b.label}` : a.label);
+    head(s3, 'ตารางสรุปสถิติเปรียบเทียบ', b ? `${a.label} · ฐาน = ${b.label}` : a.label);
     const th = t => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: TEAL }, align: 'right' } });
     const rows = [[
       { text: 'ประเภท', options: { bold: true, color: 'FFFFFF', fill: { color: TEAL } } },
       th('ยอดรวม'), th('เฉลี่ย/วัน'),
-      th(b ? `ยอดรวม ${b.label}` : 'ฐาน'), th(b ? `เฉลี่ย/วัน ${b.label}` : '—'),
+      th('ยอดรวม (ฐาน)'), th('เฉลี่ย/วัน (ฐาน)'),
       th('เปลี่ยนแปลง'),
     ]];
     METRICS.forEach((m, i) => {
@@ -4629,8 +5007,10 @@ async function exportPPTX() {
 
     // ---------- 4. แนวโน้มรายวัน ----------
     const s4 = pptx.addSlide({ masterName: 'BODY' });
-    head(s4, 'แนวโน้มรายวัน', 'จำนวนผู้ใช้บริการเข้าศูนย์รายวัน');
-    const trendImg = chartPNG('trend');
+    const tsp = trendSpec(a, b);
+    head(s4, tsp.title, b && b.id !== a.id ? `${a.label} (เส้นทึบ) เทียบ ${b.label} (เส้นประ)` : a.label);
+    /* วาดที่ 876px = ความกว้างภาพบนสไลด์ (8.76 นิ้ว × 100) ตัวหนังสือบนกราฟจึงขนาดพอดีสไลด์ */
+    const trendImg = buildReportTrendImage(a, b, 876, 3.28 / 8.76);
     if (trendImg) {
       s4.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.12, w: 9.1, h: 3.6, fill: { color: PANEL }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
       s4.addImage({ data: trendImg, x: 0.62, y: 1.28, w: 8.76, h: 3.28 });
@@ -4640,8 +5020,8 @@ async function exportPPTX() {
 
     // ---------- 5. พฤติกรรมช่วงเวลา ----------
     const s5 = pptx.addSlide({ masterName: 'BODY' });
-    head(s5, 'พฤติกรรมตามช่วงเวลา', 'ค่าเฉลี่ยต่อวัน');
-    const occImg = chartPNG('occ') || chartPNG('hrCust');
+    head(s5, 'พฤติกรรมตามช่วงเวลา', a.agg.days === 1 ? a.label : `ค่าเฉลี่ยต่อวัน · ${a.label}`);
+    const occImg = buildReportHourlyImage(a, 542, 2.74 / 5.42);
     if (occImg) {
       s5.addShape(pptx.ShapeType.roundRect, { x: 0.45, y: 1.12, w: 5.72, h: 2.98, fill: { color: PANEL }, line: { color: LINE, width: 1 }, rectRadius: 0.05 });
       s5.addImage({ data: occImg, x: 0.6, y: 1.24, w: 5.42, h: 2.74 });
@@ -4720,7 +5100,7 @@ async function exportPPTX() {
     s8.addText('รายงานฉบับนี้จัดทำโดยระบบอัตโนมัติจากข้อมูลบันทึกยอดรายวัน ตัวเลขทั้งหมดอ้างอิงจากไฟล์ต้นฉบับโดยตรง',
       { x: 0.45, y: 4.76, w: 9.1, h: 0.26, fontSize: 8.5, color: FAINT, fontFace: F, italic: true });
 
-    await pptx.writeFile({ fileName: `${docNo}_${a.label.replace(/[\s.]/g, '')}.pptx` });
+    await pptx.writeFile({ fileName: `${docNo}_${safeName(a.label)}.pptx` });
     toast('สร้างไฟล์นำเสนอเรียบร้อย · 8 สไลด์', 'ok');
   } catch (e) {
     exportErrorToast(e, 'สไลด์นำเสนอ');
@@ -4731,7 +5111,7 @@ async function exportPPTX() {
 }
 
 async function exportImage(kind) {
-  const a = A();
+  const a = RA();
   if (!a) return toast('ยังไม่มีข้อมูล', 'warn');
   const btn = kind === 'pdf' ? $('#btn-pdf') : $('#btn-png');
   if (!btn) return;
@@ -4760,7 +5140,7 @@ async function exportImage(kind) {
         width: pages[i].offsetWidth, height: pages[i].offsetHeight,
       }));
     }
-    const name = `SBK_Traffic_${a.label.replace(/[\s.]/g, '')}`;
+    const name = `${reportDocNo(a)}_${safeName(a.label)}`;
 
     if (kind === 'png') {
       /* แยกเป็นไฟล์ละหน้า — ภาพเดียวที่ต่อกันยาวเหยียดซูมอ่านในมือถือลำบาก
@@ -4824,55 +5204,122 @@ async function exportImage(kind) {
       "แนวโน้มผู้ใช้บริการ" จะได้กราฟรถยนต์ไปแทน
    การวาดเองบน canvas ขนาดตายตัว ไม่ขึ้นกับหน้าจอ ไม่มีอนิเมชัน จึงได้ภาพครบทุกครั้ง
    ===================================================================== */
-function buildReportTrendImage(a, b, width) {
-  if (typeof Chart === 'undefined' || !a || !a.agg.rows.length) return null;
+/** เลขที่เอกสาร — บอกประเภทรายงานในตัว เช่น SBK-TR-W256945 = รายสัปดาห์ สัปดาห์ที่ 45 ปี 2569 */
+function reportDocNo(a) {
+  if (a.synthetic && a.docSuffix) return `SBK-TR-${a.docSuffix}`;
+  return `SBK-TR-M${a.year || new Date().getFullYear() + 543}${String(a.month || 0).padStart(2, '0')}`;
+}
+
+const DOW_SHORT = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+/**
+ * ข้อมูลของกราฟแนวโน้มตามประเภทรายงาน — แกนนอนต้องเปลี่ยนตามช่วง
+ *   รายวัน     → รายชั่วโมง (วันเดียวมีจุดเดียว ถ้าพล็อตรายวันจะไม่เห็นอะไร)
+ *   รายสัปดาห์ → 7 วัน เทียบวันต่อวันกับสัปดาห์ก่อน (จันทร์กับจันทร์)
+ *   รายเดือน   → วันที่ 1–31
+ *   รายปี      → 12 เดือน ใช้ "ค่าเฉลี่ยต่อวัน" ของแต่ละเดือน
+ *               (ใช้ยอดรวมไม่ได้ เพราะเดือนมี 28–31 วัน และเดือนล่าสุดอาจยังไม่ครบ)
+ */
+function trendSpec(a, b) {
+  const scope = a.synthetic ? a.scope : 'month';
+  const other = b && b.id !== a.id ? b : null;
+  if (scope === 'day') {
+    return {
+      title: 'ลูกค้าเข้ารายชั่วโมง', xTitle: 'เวลา (น.)', yTitle: 'คน/ชั่วโมง',
+      labels: HOURS_CUST.map(h => hLabel(h)),
+      aVals: a.agg.hrSum.cIn.map(v => num(v)),
+      bVals: other ? other.agg.hrSum.cIn.map(v => num(v)) : null,
+    };
+  }
+  if (scope === 'week') {
+    const labels = [], aVals = [], bVals = [];
+    const byKey = (f) => Object.fromEntries((f ? f.agg.rows : []).map(r => [ymdKey({ y: r.y, m: r.m, d: r.d }), num(r.cIn)]));
+    const am = byKey(a), bm = byKey(other);
+    for (let i = 0; i < 7; i++) {
+      const o = addDays(a.from, i);
+      labels.push(`${DOW_SHORT[toJs(o).getDay()]} ${o.d}`);
+      aVals.push(am[ymdKey(o)] ?? null);
+      if (other) bVals.push(bm[ymdKey(addDays(other.from, i))] ?? null);
+    }
+    return { title: 'ลูกค้าเข้ารายวัน', xTitle: 'วันในสัปดาห์', yTitle: 'คน/วัน', labels, aVals, bVals: other ? bVals : null };
+  }
+  if (scope === 'year') {
+    const monthly = (f) => {
+      if (!f) return null;
+      const sum = new Array(12).fill(0), cnt = new Array(12).fill(0);
+      for (const r of f.agg.rows) { if (r.m >= 1 && r.m <= 12) { sum[r.m - 1] += num(r.cIn); cnt[r.m - 1]++; } }
+      return sum.map((v, i) => cnt[i] ? Math.round(v / cnt[i]) : null);
+    };
+    return {
+      title: 'ค่าเฉลี่ยลูกค้าเข้าต่อวัน รายเดือน', xTitle: 'เดือน', yTitle: 'คน/วัน (เฉลี่ย)',
+      labels: MONTH_TH.slice(), aVals: monthly(a), bVals: monthly(other),
+    };
+  }
+  // รายเดือน
+  const rowsAll = [...a.agg.rows, ...(other ? other.agg.rows : [])];
+  const maxDay = Math.max(1, ...rowsAll.map(r => r.d));
+  const labels = Array.from({ length: maxDay }, (_, i) => String(i + 1));
+  const byDay = (f) => { const m = Object.fromEntries(f.agg.rows.map(r => [r.d, num(r.cIn)])); return labels.map(l => m[+l] ?? null); };
+  return { title: 'แนวโน้มลูกค้าเข้ารายวัน', xTitle: 'วันที่ในเดือน', yTitle: 'คน/วัน',
+           labels, aVals: byDay(a), bVals: other ? byDay(other) : null };
+}
+
+/* =====================================================================
+   วาดกราฟเส้นบน canvas นอกจอ แล้วคืนเป็นภาพ PNG (data URL)
+   ---------------------------------------------------------------------
+   ใช้กับรายงาน A4 และ PowerPoint — ไม่คัดลอกจากกราฟบนหน้าจอ เพราะ
+   1) กราฟที่ถูกสร้างตอนมุมมองซ่อนอยู่จะไม่มีขนาด ได้ภาพว่าง
+   2) กราฟบนจอเป็นของ "รายเดือน" เสมอ ใช้กับรายงานรายวัน/สัปดาห์/ปีไม่ได้
+   3) วาดที่ความกว้างจริงที่จะแสดง ฟอนต์บนกราฟจึงไม่ถูกย่อจนอ่านไม่ออก
+   ===================================================================== */
+function offscreenLineImage(spec, width, ratio = 0.40) {
+  if (typeof Chart === 'undefined' || !spec) return null;
   const p = palette();
-  /* วาดที่ความกว้างเท่าพื้นที่แสดงจริง ฟอนต์ 11px บนกราฟจึงออกมา 11px จริงในรายงาน
-     (ถ้าวาดใหญ่แล้วย่อลงช่องแคบ ป้ายแกนจะเล็กจนอ่านไม่ออก) */
-  const W = Math.max(280, Math.round(width || 400)) - 2;   // หักเส้นกรอบรูป 2px
-  /* อัตราส่วน 0.40 — สูงพอให้เห็นรูปแนวโน้มชัด และทำให้หน้า 2 พอดี A4
-     โดยไม่ต้องบีบระยะบรรทัด (ทดสอบแล้วทั้ง 59 เดือน) */
-  const H = Math.round(W * 0.40);
+  const W = Math.max(280, Math.round(width || 400)) - 2;     // หักเส้นกรอบรูป 2px
+  const H = Math.round(W * ratio);
   const cv = document.createElement('canvas');
-  cv.width = W * 2; cv.height = H * 2;  // 2 เท่าให้คมเมื่อพิมพ์และส่งออก PNG ความละเอียด 2x
+  cv.width = W * 2; cv.height = H * 2;                         // 2 เท่าให้คมเมื่อพิมพ์
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
-  /* Chart.js ต้องการ canvas ที่อยู่ใน DOM จึงจะคำนวณฟอนต์และขนาดได้ถูก
+  /* Chart.js ต้องการ canvas ที่อยู่ใน DOM จึงคำนวณฟอนต์ได้ถูก
      วางไว้นอกจอแทนการซ่อนด้วย display:none (ซึ่งจะทำให้ขนาดเป็นศูนย์) */
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${W}px;height:${H}px;pointer-events:none`;
   host.appendChild(cv);
   document.body.appendChild(host);
 
-  const maxDay = Math.max(...a.agg.rows.map(r => r.d), ...(b && b.id !== a.id ? b.agg.rows.map(r => r.d) : [0]));
-  const labels = Array.from({ length: maxDay }, (_, i) => String(i + 1));
-  const series = f => { const m = Object.fromEntries(f.agg.rows.map(r => [r.d, num(r.cIn)])); return labels.map(l => m[+l] ?? null); };
-  // ทำสีพื้นใต้เส้นแบบโปร่งจากสีหลัก — รับทั้งรูปแบบ #RRGGBB และ #RGB ถ้าไม่ใช่ hex ไม่ถมพื้น
   const soft = c => { const h = String(c || '').trim();
     if (/^#[0-9a-f]{6}$/i.test(h)) return h + '22';
     if (/^#[0-9a-f]{3}$/i.test(h)) return '#' + [...h.slice(1)].map(x => x + x).join('') + '22';
     return 'transparent'; };
-  const ds = [{ label: a.label, data: series(a), borderColor: p.accent, backgroundColor: soft(p.accent),
-                borderWidth: 2.6, fill: true, tension: .32, pointRadius: 2.2, pointBackgroundColor: p.accent, spanGaps: true }];
-  if (b && b.id !== a.id) ds.push({ label: b.label, data: series(b), borderColor: p.violet, backgroundColor: 'transparent',
-                borderWidth: 2, borderDash: [6, 4], fill: false, tension: .32, pointRadius: 0, spanGaps: true });
+  const ds = (spec.series || []).map((sr, i) => ({
+    label: sr.label, data: sr.data,
+    borderColor: sr.color || (i ? p.violet : p.accent),
+    backgroundColor: sr.fill ? soft(sr.color || p.accent) : 'transparent',
+    borderWidth: sr.dash ? 2 : 2.6, borderDash: sr.dash ? [6, 4] : [],
+    fill: !!sr.fill, tension: .32, spanGaps: true,
+    pointRadius: sr.dash ? 0 : (spec.labels.length <= 15 ? 3 : 2),
+    pointBackgroundColor: sr.color || p.accent,
+  }));
 
   let url = null, ch = null;
   try {
     ch = new Chart(cv, {
-      type: 'line', data: { labels, datasets: ds },
+      type: 'line', data: { labels: spec.labels, datasets: ds },
       options: {
         responsive: false, animation: false, devicePixelRatio: 2,
         layout: { padding: { top: 4, right: 12, bottom: 2, left: 4 } },
         plugins: {
-          legend: { position: 'top', align: 'end', labels: { color: p.dim, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { size: 12 } } },
+          legend: { display: ds.length > 1, position: 'top', align: 'end',
+                    labels: { color: p.dim, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { size: 11 } } },
           tooltip: { enabled: false },
         },
         scales: {
-          x: { grid: { display: false }, border: { color: p.line }, ticks: { color: p.dim, font: { size: 10.5 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 6 },
-               title: { display: true, text: 'วันที่ในเดือน', color: p.faint, font: { size: 10.5 } } },
+          x: { grid: { display: false }, border: { color: p.line },
+               ticks: { color: p.dim, font: { size: 10.5 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 6 },
+               title: { display: !!spec.xTitle, text: spec.xTitle, color: p.faint, font: { size: 10.5 } } },
           y: { beginAtZero: true, grid: { color: p.line }, border: { display: false },
-               ticks: { color: p.dim, font: { size: 11 }, maxTicksLimit: 5, callback: v => v >= 1000 ? (v / 1000) + 'k' : v },
-               title: { display: true, text: 'คน/วัน', color: p.faint, font: { size: 10.5 } } },
+               ticks: { color: p.dim, font: { size: 10.5 }, maxTicksLimit: 5, callback: v => v >= 1000 ? (v / 1000) + 'k' : v },
+               title: { display: !!spec.yTitle, text: spec.yTitle, color: p.faint, font: { size: 10.5 } } },
         },
       },
     });
@@ -4885,12 +5332,37 @@ function buildReportTrendImage(a, b, width) {
     ctx.drawImage(cv, 0, 0);
     url = out.toDataURL('image/png');
   } catch (e) {
-    console.error('[report-trend]', e);
+    console.error('[offscreen-chart]', e);
   } finally {
     try { ch && ch.destroy(); } catch {}
     host.remove();
   }
   return url;
+}
+
+/** กราฟแนวโน้มของรายงาน (แกนนอนเปลี่ยนตามประเภทรายงาน) */
+function buildReportTrendImage(a, b, width, ratio) {
+  if (!a || !a.agg.rows.length) return null;
+  const sp = trendSpec(a, b);
+  const p = palette();
+  const series = [{ label: a.label, data: sp.aVals, color: p.accent, fill: true }];
+  if (sp.bVals) series.push({ label: b.label, data: sp.bVals, color: p.violet, dash: true });
+  return offscreenLineImage({ labels: sp.labels, series, xTitle: sp.xTitle, yTitle: sp.yTitle }, width, ratio);
+}
+
+/** กราฟรายชั่วโมงสำหรับสไลด์: ผู้เข้าศูนย์ต่อชั่วโมง เทียบกับจำนวนผู้อยู่ภายในศูนย์ */
+function buildReportHourlyImage(a, width, ratio) {
+  if (!a) return null;
+  const p = palette();
+  const one = a.agg.days === 1;
+  return offscreenLineImage({
+    labels: HOURS_CUST.map(h => hLabel(h)),
+    series: [
+      { label: one ? 'ผู้เข้าศูนย์ต่อชั่วโมง' : 'ผู้เข้าศูนย์ต่อชั่วโมง (เฉลี่ย)', data: a.agg.hrAvg.cIn.map(v => Math.round(v)), color: p.accent, fill: true },
+      { label: 'ผู้อยู่ภายในศูนย์ (ประมาณ)', data: a.agg.occupancy.map(v => Math.round(v)), color: p.amber, dash: true },
+    ],
+    xTitle: 'เวลา (น.)', yTitle: 'คน',
+  }, width, ratio);
 }
 
 function refreshReportChart() {
@@ -4901,7 +5373,7 @@ function refreshReportChart() {
   box.style.visibility = 'hidden'; box.style.display = '';
   const width = img.parentElement.clientWidth || box.clientWidth;
   box.style.visibility = '';
-  const url = buildReportTrendImage(A(), B(), width);
+  const url = buildReportTrendImage(RA(), RB(), width);
   if (!url) { box.style.display = 'none'; checkReportPages(); return; }
   img.onload = () => checkReportPages();   // ความสูงหน้าเปลี่ยนเมื่อภาพโหลดเสร็จ
   img.src = url;
@@ -4973,16 +5445,19 @@ function fitReportSheet() {
 window.addEventListener('resize', () => { if (state.view === 'report') fitReportSheet(); });
 
 function exportCSV() {
-  const a = A();
+  const a = RA();
   if (!a) return;
   const head = ['วันที่', 'วัน', 'วันหยุด', 'ลูกค้าเข้า', 'ลูกค้าออก', 'รถยนต์เข้า24ชม', 'รถยนต์ออก24ชม', 'จยย', 'เดลิเวอรี่', 'MRTเข้า', 'MRTออก', 'แท็กซี่'];
+  // ใช้ปี/เดือนของ "แต่ละแถว" — รายงานรายสัปดาห์/รายปีมีหลายเดือนปนกัน
   const rows = a.agg.rows.map(r => [
-    `${r.d}/${a.month}/${a.year}`, r.dowName, r.isHoliday ? (r.holidayName || 'วันหยุด') : '',
+    `${r.d}/${r.m || a.month}/${r.y || a.year}`, r.dowName, r.isHoliday ? (r.holidayName || 'วันหยุด') : '',
     r.cIn, r.cOut, r.vIn24, r.vOut24, r.mc, r.dlv, r.mrt, r.mrtOut, r.taxi,
   ]);
+  const t = a.agg.total;
+  rows.push(['รวม', '', '', t.cIn, t.cOut, t.vIn24, t.vOut24, t.mc, t.dlv, t.mrt, t.mrtOut, t.taxi]);
   const csv = [head, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });   // BOM ให้ Excel อ่านภาษาไทยถูก
-  downloadBlob(blob, `SBK_Traffic_${a.label.replace(/[\s.]/g, '')}.csv`);
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });   // BOM ให้ Excel อ่านภาษาไทยถูก
+  downloadBlob(blob, `${reportDocNo(a)}_${safeName(a.label)}.csv`);
   toast('บันทึกไฟล์ CSV เรียบร้อย', 'ok');
 }
 
