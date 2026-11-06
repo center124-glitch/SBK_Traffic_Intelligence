@@ -2026,7 +2026,7 @@ if (typeof Chart === 'undefined') {
    ========================================================================== */
 'use strict';
 
-const APP_VERSION = '62.0';
+const APP_VERSION = '63.0';
 
 /* ---------- ค่าตั้งต้นการเชื่อมต่อ ---------- */
 /* โฟลเดอร์เดียวตามที่ผู้ใช้กำหนด — "ข้อมูลเปรียบเทียบ ยอดลูกค้าและยอดรถยนต์"
@@ -4165,7 +4165,8 @@ function renderReport() {
 
      หน้า 1 — หัวกระดาษ / บทสรุปผู้บริหาร / ตัวเลขสำคัญ / ตารางสถิติ / ช่วงเวลาหนาแน่น
      หน้า 2 — บทวิเคราะห์ / ประตูที่มีผู้ใช้สูงสุด / สัดส่วนรายชั้น
-     หน้า 3 — ข้อเสนอแนะ / กราฟแนวโน้ม / นิยามและวิธีคำนวณ / ช่องลงนามรับรอง
+     หน้า 3 — ข้อเสนอแนะ / นิยามและวิธีคำนวณ / วันธรรมดาเทียบวันหยุด
+              (ไม่มีช่องลงนาม — ผู้ใช้ขอให้ตัดออก)
 
      ความกว้างคงที่ 1123px = A4 แนวนอนที่ 96dpi (297mm) เพื่อให้สัดส่วน
      ที่เห็นบนจอตรงกับไฟล์ PDF ที่ได้ ไม่ต้องเดาตอนจัดหน้า
@@ -4433,19 +4434,6 @@ function renderReport() {
       </div>
 
       <div style="flex:1"></div>
-
-      <!-- ---------- ช่องลงนามรับรอง ----------
-           เอกสารที่ต้องเสนอผู้บริหารต้องมีผู้รับผิดชอบลงนาม จึงแยกเป็นบล็อกชัดเจน
-           แทนการเป็นเส้นขีดเล็ก ๆ ในท้ายกระดาษแบบเดิม -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:16px">
-        ${['ผู้จัดทำ', 'ผู้ตรวจทาน', 'ผู้อนุมัติ'].map(r => `
-          <div style="text-align:center;font-size:10.5px;color:var(--text-dim)">
-            <div style="height:38px;border-bottom:1px dotted var(--text-faint);margin:0 18px"></div>
-            <div style="margin-top:6px">( ...................................................... )</div>
-            <div style="margin-top:3px;font-weight:600;color:var(--text)">${r}</div>
-            <div style="margin-top:2px">วันที่ ...... / ...... / ............</div>
-          </div>`).join('')}
-      </div>
 
       <div style="margin-top:16px;padding-top:9px;border-top:1px solid var(--line);
            display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:var(--text-faint);line-height:1.6">
