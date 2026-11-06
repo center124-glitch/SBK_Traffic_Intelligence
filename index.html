@@ -736,6 +736,89 @@ select.input option { background: var(--surface-2); color: var(--text); }
 .kpi-foot  { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
 .kpi-sub   { font-size: 11.5px; color: var(--text-faint); }
 
+/* =====================================================================
+   เอฟเฟคตัวเลขสรุปยอด — ให้ตัวเลขมีมิติและมีชีวิต
+   ---------------------------------------------------------------------
+   ใช้เฉพาะการ์ดบนแดชบอร์ด ไม่ใช้ในแผ่นรายงาน A4 เพราะ html2canvas
+   วาด background-clip:text และ filter ไม่ได้ ภาพที่ส่งออกจะเพี้ยน
+
+   1) ไล่สีในตัวอักษร: เริ่มจากสีหมึก (ผ่าน AA) แล้วไล่ไปสีประจำประเภทที่ปลายบนขวา
+      ตัวเลขส่วนใหญ่ยังเป็นสีหมึก จึงอ่านง่ายเท่าเดิม
+   2) เงาซ้อน 2 ชั้น: เส้นสว่างบาง ๆ ใต้ตัวอักษร + เงานุ่มสีประจำประเภท
+      ให้ความรู้สึกว่าตัวเลข "ลอย" ขึ้นจากการ์ด (โหมดมืดเป็นแสงเรือง)
+   3) แสงวาบพาดผ่านตัวเลขครั้งเดียวหลังนับเสร็จ
+   ===================================================================== */
+.kv-num {
+  display: inline-block;
+  /* สองชั้นที่ถูกตัดตามรูปตัวอักษรพร้อมกัน:
+     ชั้นบน = เงามันวาว (สว่างด้านบน เข้มด้านล่าง) ทำให้ตัวเลขดูนูน
+     ชั้นล่าง = สีหมึกของประเภท (โหมดสว่าง) / ไล่สีหมึก→สีประจำประเภท (โหมดมืด)
+     โหมดสว่างใช้สีหมึกล้วน เพราะสีประจำประเภท (ฟ้า เขียวมิ้นต์) บนพื้นขาวคอนทราสต์ไม่ถึง AA */
+  /* โหมดสว่าง: ชั้นเงา "เข้มขึ้นอย่างเดียว" ไปทางฐานตัวอักษร — บนพื้นขาว การทำให้เข้มขึ้น
+     มีแต่จะเพิ่มคอนทราสต์ (เดิมใส่ไฮไลต์ขาวด้านบน ทำให้บางการ์ดเหลือ 3.86:1 ไม่ผ่าน AA) */
+  --kv-gloss: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 38%, rgba(0,0,0,.18) 100%);
+  --kv-base: linear-gradient(var(--kpi-ink), var(--kpi-ink));
+  background-image: var(--kv-gloss), var(--kv-base);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  /* เส้นสว่างบางใต้ตัวอักษร + เงานุ่มสีประจำประเภท = ตัวเลขลอยจากการ์ด */
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,.7)) drop-shadow(0 5px 9px var(--kpi-glow));
+  font-variant-numeric: tabular-nums;          /* หลักไม่กระโดดไปมาระหว่างนับ */
+}
+:root:not([data-theme="light"]) .kv-num {
+  --kv-gloss: linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,.10) 100%);
+  --kv-base: linear-gradient(118deg, var(--kpi-ink) 0%, var(--kpi-ink) 45%, var(--kpi-color) 100%);
+  filter: drop-shadow(0 0 1px rgba(255,255,255,.15)) drop-shadow(0 3px 14px var(--kpi-glow));
+}
+/* ระหว่างนับ ปิดเงาไว้ก่อน — ข้อความเปลี่ยนทุกเฟรม ถ้ามี drop-shadow ด้วย
+   เบราว์เซอร์ต้องวาดเงาใหม่ทุกเฟรม × 8 การ์ด หนักเกินไปสำหรับมือถือรุ่นเก่า
+   เงาจะกลับมาตอนตัวเลขนิ่ง ซึ่งให้ความรู้สึกว่าตัวเลข "ลงจอด" พอดี */
+.kv-num.kv-counting { filter: none !important; }
+.kv-num { transition: filter .35s ease-out; }
+/* แสงวาบ — ชั้นไล่สีที่สองเลื่อนผ่านครั้งเดียว */
+.kv-num.kv-shine {
+  background-image:
+    linear-gradient(105deg, transparent 40%, rgba(255,255,255,.9) 50%, transparent 60%),
+    var(--kv-gloss), var(--kv-base);
+  background-size: 260% 100%, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  animation: kvShine 1.05s cubic-bezier(.4,0,.2,1) 1;
+}
+@keyframes kvShine { from { background-position: 135% 0, 0 0, 0 0; } to { background-position: -35% 0, 0 0, 0 0; } }
+
+/* ป้ายเปลี่ยนแปลง (+/− %) ซ่อนไว้ระหว่างนับ แล้วเด้งขึ้นหลังตัวเลขนับเสร็จ */
+.kpi .delta.kv-wait { opacity: 0; }
+.kpi .delta.kv-pop { animation: kvPop .45s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes kvPop { from { opacity: 0; transform: scale(.6) translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* การ์ดเอียงตามตำแหน่งเมาส์ + แสงสะท้อนที่เลื่อนตาม
+   ใช้เฉพาะอุปกรณ์ที่มีเมาส์จริง (จอสัมผัสไม่มีสถานะ hover จะค้างเอียง) */
+@media (hover: hover) and (pointer: fine) {
+  .card.kpi, .card.kpi:hover {
+    transform: perspective(900px) translateY(var(--lift, 0px))
+               rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .18s, box-shadow .25s;
+    background-image:
+      radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), var(--sheen, transparent), transparent 62%),
+      linear-gradient(135deg, var(--kpi-soft) 0%, transparent 52%),
+      radial-gradient(120% 90% at 100% 0%, var(--kpi-soft) 0%, transparent 58%);
+  }
+  .card.kpi.kv-tilt { transition: transform .08s linear, border-color .18s, box-shadow .25s; }
+  .card.kpi:hover { --lift: -3px; --sheen: rgba(255,255,255,.55); }
+  :root:not([data-theme="light"]) .card.kpi:hover { --sheen: rgba(255,255,255,.07); }
+  /* ตัวเลขขยายขึ้นเล็กน้อยตอนชี้ ให้ความรู้สึกว่าลอยเข้าหาผู้ดู
+     ไม่ใช้ transform-style: preserve-3d + translateZ เพราะทำให้ mask ของไอคอนลายน้ำ
+     มุมขวาล่างหลุด กลายเป็นสี่เหลี่ยมสีจาง ๆ บนการ์ดทุกใบ */
+  .kpi .kpi-value { transform-origin: left center; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+  .kpi:hover .kpi-value { transform: scale(1.045); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kv-num.kv-shine, .kpi .delta.kv-pop { animation: none; }
+  .card.kpi, .card.kpi:hover { transform: none !important; }
+  .kpi:hover .kpi-value, .kpi:hover .kpi-icon { transform: none !important; }
+}
+
 .delta {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 11.5px; font-weight: 700; font-family: var(--mono);
@@ -2042,7 +2125,7 @@ if (typeof Chart === 'undefined') {
    ========================================================================== */
 'use strict';
 
-const APP_VERSION = '64.0';
+const APP_VERSION = '65.0';
 
 /* ---------- ค่าตั้งต้นการเชื่อมต่อ ---------- */
 /* โฟลเดอร์เดียวตามที่ผู้ใช้กำหนด — "ข้อมูลเปรียบเทียบ ยอดลูกค้าและยอดรถยนต์"
@@ -3429,7 +3512,11 @@ function iconMask(id) {
       const inner = sym.innerHTML;
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ` +
                   `stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-      out = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+      /* ต้องใช้เครื่องหมายคำพูดเดี่ยวใน url('...') เพราะค่านี้ถูกใส่ลงใน style="..." ของการ์ด
+         ถ้าใช้ " ตัวแอตทริบิวต์จะถูกปิดกลางทาง mask จึงไม่ทำงาน แล้วลายน้ำกลายเป็น
+         สี่เหลี่ยมทึบจาง ๆ มุมขวาล่างของการ์ดทุกใบ (บั๊กที่มีมาตั้งแต่เพิ่มลายน้ำ)
+         encodeURIComponent ไม่เข้ารหัส ' ให้ จึงต้องแปลงเองเป็น %27 */
+      out = `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, '%27')}')`;
     }
   } catch { out = ''; }
   _maskCache[id] = out;
@@ -3477,7 +3564,125 @@ function renderAll() {
   renderGates();
   renderCompare();
   renderReport();
+  prepareNumbers();
+  animateNumbers();
 }
+
+
+/* =====================================================================
+   เอฟเฟคตัวเลขสรุปยอด: นับขึ้น (count-up) + แสงวาบ + การ์ดเอียงตามเมาส์
+   ---------------------------------------------------------------------
+   หลักความถูกต้อง: ระหว่างนับเป็นแค่ภาพเคลื่อนไหว แต่ "ค่าสุดท้าย" ต้องเป็น
+   fmt(ค่าจริง) ตัวต่อตัวเสมอ จึงมีตัวตั้งเวลาสำรองบังคับค่าสุดท้าย
+   เผื่อกรณีแท็บถูกพับ (requestAnimationFrame หยุดทำงาน) หรือเครื่องช้า
+   ผู้ใช้โปรแกรมอ่านหน้าจอจะได้ยินค่าจริงจาก aria-label ไม่ได้ยินตัวเลขระหว่างนับ
+   ===================================================================== */
+const NUMFX = { last: new Map(), dur: 1100, stagger: 70 };
+const reduceMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+/** ห่อตัวเลขใน .kpi-value ด้วย <span class="kv-num"> (เรียกซ้ำได้ ไม่ห่อซ้อน) */
+function prepareNumbers(root = document) {
+  root.querySelectorAll('.kpi .kpi-value').forEach(el => {
+    if (el.closest('#report-sheet') || el.querySelector('.kv-num')) return;
+    const tn = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+    if (!tn) return;
+    const raw = tn.textContent.trim();
+    const span = document.createElement('span');
+    span.className = 'kv-num';
+    span.textContent = raw;
+    // นับขึ้นได้เฉพาะจำนวนเต็มที่มีคอมมา เช่น "211,869" — ค่าอย่าง "13.00" (เวลา) หรือ "—" แสดงตรง ๆ
+    if (/^-?\d[\d,]*$/.test(raw)) span.dataset.count = raw.replace(/,/g, '');
+    el.replaceChild(span, tn);
+    el.setAttribute('aria-label', el.textContent.trim());
+  });
+}
+
+function settleNumber(n, card) {
+  if (n.dataset.count != null) n.textContent = fmt(Number(n.dataset.count));
+  n.classList.remove('kv-counting');
+  n.dataset.settled = '1';
+  const d = card && card.querySelector('.delta.kv-wait');
+  if (d) { d.classList.remove('kv-wait'); if (!reduceMotion()) d.classList.add('kv-pop'); }
+  if (!reduceMotion()) {
+    n.classList.remove('kv-shine'); void n.offsetWidth;    // เริ่มแอนิเมชันใหม่ได้แม้เคยวาบแล้ว
+    n.classList.add('kv-shine');
+    n.addEventListener('animationend', () => n.classList.remove('kv-shine'), { once: true });
+  }
+}
+
+/** นับตัวเลขในมุมมองที่แสดงอยู่ เฉพาะตัวที่ยังไม่เคยนับในการเรนเดอร์รอบนี้ */
+function animateNumbers() {
+  const sec = $('.view.active');
+  if (!sec) return;
+  /* หน้าโลโก้ยังบังอยู่ — ยังไม่นับ (ผู้ใช้จะไม่เห็น) ตัวเลขยังแสดงค่าจริงตามปกติ
+     hideSplash() จะเรียกฟังก์ชันนี้อีกครั้งตอนหน้าแอปปรากฏ */
+  const sp = $('#splash');
+  if (sp && !sp.classList.contains('gone')) return;
+  const items = [...sec.querySelectorAll('.kv-num')].filter(n => !n.dataset.animated);
+  items.forEach((n, i) => {
+    n.dataset.animated = '1';
+    const card = n.closest('.kpi');
+    const key = sec.id + '|' + (card?.querySelector('.kpi-label')?.textContent.trim() || i);
+    const to = n.dataset.count != null ? Number(n.dataset.count) : null;
+    /* เริ่มนับจากค่าที่เคยแสดงไว้ — เปลี่ยนเดือนแล้วตัวเลข "หมุน" จากค่าเดิมไปค่าใหม่
+       ถ้าค่าเท่าเดิม (เช่นกดซิงค์แล้วข้อมูลไม่เปลี่ยน) ไม่ต้องเล่นซ้ำให้รำคาญตา */
+    const from = NUMFX.last.has(key) ? NUMFX.last.get(key) : 0;
+    if (to != null) NUMFX.last.set(key, to);
+    if (to == null || from === to || reduceMotion() || document.hidden) {
+      if (to != null) n.textContent = fmt(to);
+      if (to == null && !reduceMotion() && !NUMFX.last.has(key + '#seen')) {
+        NUMFX.last.set(key + '#seen', 1);
+        setTimeout(() => settleNumber(n, card), i * NUMFX.stagger + 300);
+      }
+      return;
+    }
+    card?.querySelector('.delta')?.classList.add('kv-wait');
+    n.classList.add('kv-counting');
+    n.textContent = fmt(from);
+    const delay = i * NUMFX.stagger;
+    let t0 = null, done = false;
+    const finish = () => { if (done) return; done = true; settleNumber(n, card); };
+    const step = (ts) => {
+      if (done) return;
+      if (!n.isConnected) { done = true; return; }   // ถูกเรนเดอร์ใหม่ระหว่างนับ
+      if (t0 == null) t0 = ts + delay;
+      const t = Math.min(1, Math.max(0, (ts - t0) / NUMFX.dur));
+      n.textContent = fmt(Math.round(from + (to - from) * easeOutCubic(t)));
+      if (t < 1) requestAnimationFrame(step); else finish();
+    };
+    requestAnimationFrame(step);
+    // ตัวสำรอง: รับประกันว่าค่าสุดท้ายถูกต้อง แม้ rAF ไม่ทำงาน (แท็บถูกพับ/เครื่องช้า)
+    setTimeout(() => { if (n.isConnected) finish(); }, delay + NUMFX.dur + 400);
+  });
+}
+
+/* การ์ดเอียงตามเมาส์ — ผูกครั้งเดียวที่ document (event delegation)
+   การ์ดถูกสร้างใหม่ทุกครั้งที่เรนเดอร์ ถ้าผูกที่ตัวการ์ดจะต้องผูกซ้ำทุกรอบ */
+(function bindKpiTilt() {
+  if (!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches)) return;
+  let cur = null;
+  const reset = (card) => {
+    if (!card) return;
+    card.classList.remove('kv-tilt');
+    card.style.removeProperty('--rx'); card.style.removeProperty('--ry');
+  };
+  document.addEventListener('pointermove', (e) => {
+    const card = e.target && e.target.closest ? e.target.closest('.card.kpi') : null;
+    if (card !== cur) { reset(cur); cur = card; }
+    if (!card || reduceMotion() || card.closest('#report-sheet')) return;
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    // เอียงสูงสุด 7° — มากกว่านี้ตัวเลขจะอ่านยากขณะเอียง
+    card.style.setProperty('--ry', ((x - .5) * 7).toFixed(2) + 'deg');
+    card.style.setProperty('--rx', ((.5 - y) * 7).toFixed(2) + 'deg');
+    card.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+    card.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+    card.classList.add('kv-tilt');
+  }, { passive: true });
+  document.addEventListener('pointerleave', () => { reset(cur); cur = null; });
+  window.addEventListener('blur', () => { reset(cur); cur = null; });
+})();
 
 function renderEmptyState() {
   Object.keys(charts).forEach(destroyChart);
@@ -5471,6 +5676,8 @@ function switchView(v) {
   /* กราฟที่ถูกสร้างตอนมุมมองยังซ่อนอยู่ (display:none) จะได้ canvas ขนาด 0×0
      พอสลับมาแสดงจึงว่างเปล่า — ต้องสั่ง resize เองหลัง layout อัปเดตแล้ว */
   if (v === 'report') { fitReportSheet(); refreshReportChart(); }
+  // ตัวเลขของมุมมองที่เพิ่งเปิดเริ่มนับตอนนี้ (มุมมองที่ซ่อนอยู่ไม่นับล่วงหน้า ผู้ใช้จะไม่เห็น)
+  requestAnimationFrame(() => { prepareNumbers(); animateNumbers(); });
   requestAnimationFrame(() => {
     const sec = $('#view-' + v);
     if (!sec) return;
@@ -5590,6 +5797,8 @@ function hideSplash() {
     Object.values(charts).forEach(c => { try { c.resize(); } catch {} });
     // กราฟในแผ่นรายงานก็ต้องเติมใหม่ด้วยเหตุผลเดียวกัน
     try { refreshReportChart(); } catch {}
+    // เปิดแอปแล้ว — เริ่มนับตัวเลขให้เห็นเป็นครั้งแรก
+    try { prepareNumbers(); animateNumbers(); } catch {}
   });
 }
 
